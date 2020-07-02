@@ -9,7 +9,7 @@ input_orig <- suppressMessages(read_csv(here(
 
 temp1 <- suppressMessages(
   read_csv(
-    (here("MISSING-DATA-BLIMP/TOD-impute-2020-06-23-1.csv")), col_names = F))
+    (here("INPUT-FILES/TOD-impute-2020-06-23-1.csv")), col_names = F))
 names(temp1) <- c("ID", "item", "response")
 temp2 <- temp1 %>% 
   spread(item, response) 

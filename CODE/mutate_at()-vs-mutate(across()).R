@@ -28,13 +28,7 @@ input2 <- tibble(
   c = sample(1:100, 10), 
   d = sample(1:100, 10), 
   e = sample(1:100, 10)
-) #%>% 
-  # mutate(
-  #   across(
-  #     everything(),
-  #     as.numeric
-  #   )
-  # )
+) 
 
 # demo mutate_at() vs mutate(across()) for SINGLE COL: output1_at, output1_across are identical -----------
 
