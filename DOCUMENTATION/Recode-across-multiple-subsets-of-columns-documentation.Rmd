@@ -1,5 +1,28 @@
-suppressMessages(library(here))
-suppressMessages(library(tidyverse))
+---
+title: <font size="6">Recoding across multiple subsets of columns</font>
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#### Overview
+
+This a method for recoding all values within multiple subsets of columns. The need for this method arose in the TOD project in 2020. In those data sets, we had two types of missing data:
+
+1. Missing item responses within subtests that were taken by examinees.
+2. All item responses missing for certain subtests _not taken_ by examinees.
+
+In these data sets, we first used BLIMP to impute all missing values, but then needed to go back and recode to missing certain subsets of items that were originally missing because the examinee did not attempt the subtests (type 2).
+
+To accomplish this, we need both the original input data set, so we can identify cases that have Type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original `NA` status.
+
+#### START HERE
+
+###### RUNNABLE CODE
+```{r script, eval = T}
+library(tidyverse)
 
 urlRemote_path  <- "https://raw.githubusercontent.com/"
 github_path <- "DSHerzberg/GENERAL/master/INPUT-FILES/"
@@ -89,7 +112,12 @@ blimp_recode <- blimp_output %>%
     values_from = value) %>%
   ungroup()
 
-write_csv(blimp_recode,
-          here("OUTPUT-FILES/output-col-subsets-recoded.csv"),
-          na = "")
+# knitr::kable(head(blimp_recode))
+```
 
+<br>
+
+###### COMMENTED SNIPPETS
+text
+```{r script, echo = 6, eval = F}
+```
