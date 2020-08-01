@@ -16,7 +16,7 @@ This a method for recoding all values within multiple subsets of columns. The ne
 
 In these data sets, we first used BLIMP to impute all missing values, but then needed to go back and recode to missing certain subsets of items that were originally missing because the examinee did not attempt the subtests (type 2).
 
-To accomplish this, we need both the original input data set, so we can identify cases that have Type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original `NA` status.
+To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original `NA` status.
 
 #### START HERE
 

@@ -1,12 +1,3 @@
-# This is a demo of a method for recoding all values within multiple subsets of
-# columns. The need for this method arose in the TOD project in 2020. In those
-# data sets, we needed to use BLIMP to impute missing values for the entire data
-# set, but then go back and recode to missing any cases who didn't take entire
-# subtest(s). Thus to execute this method, we need both the original input data,
-# so we can identify the cases that need recoding, and the imputed data set with
-# now missing values, because that is the file where the column subsets need to
-# be recoded to missing.
-
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
