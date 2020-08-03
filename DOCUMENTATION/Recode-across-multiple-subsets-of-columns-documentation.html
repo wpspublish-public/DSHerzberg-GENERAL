@@ -374,10 +374,7 @@ summary {
 <li>All item responses missing for certain subtests <em>not taken</em> by examinees.</li>
 </ol>
 <p>In these data sets, we first used BLIMP to impute all missing values, but then needed to go back and recode to missing certain subsets of items that were originally missing because the examinee did not attempt the subtests (type 2).</p>
-<p>To accomplish this, we need both the original input data set, so we can identify cases that have Type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original <code>NA</code> status.</p>
-</div>
-<div id="start-here" class="section level4">
-<h4>START HERE</h4>
+<p>To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original <code>NA</code> status.</p>
 <div id="runnable-code" class="section level6">
 <h6>RUNNABLE CODE</h6>
 <pre class="r"><code>library(tidyverse)
@@ -475,8 +472,35 @@ blimp_recode &lt;- blimp_output %&gt;%
 </div>
 <div id="commented-snippets" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>text</p>
-<pre class="r"><code>input_orig &lt;- suppressMessages(read_csv(url(</code></pre>
+<p>First we read in the original input data set, which contains cases that are entirely missing on one, two, or three subsets of items. Note the use of <code>readr::read_csv(url())</code> to read in a file from a remote server (github).</p>
+<pre class="r"><code>input_orig &lt;- suppressMessages(read_csv(url(
+  str_c(urlRemote_path, github_path, 
+        &quot;Recode-across-multiple-subsets-of-columns-dataOrig.csv&quot;)
+)))</code></pre>
+<p>Now we read the output file that BLIMP generates when it imputes the missing data in <code>input_orig</code>. In this output, there are no missing data.</p>
+<p>Note that in this demonstration, <code>BLIMP-impute-output.csv</code> has column names. Usually, the raw output from a BLIMP imputation lacks column names. In this case, we must use the argument <code>col_names = F</code> in the call of <code>read_csv()</code>; otherwise R will erroneously read the first row of data as column names. We can then name the columns appropriately by inserting <code>base::setNames(c(&quot;ID&quot;, &quot;item&quot;, &quot;response&quot;))</code> into the pipeline.</p>
+<p>Additionally, the BLIMP output is in tall (multi-level) format, in which items and responses are nested within ID numbers. We can use <code>tidyr::pivot_wider()</code> to transform the data object into wide format, drawing the item column names from the <code>item</code> column, and the imputed responses from the <code>response</code> column. We then rename all columns to match the naming scheme of the original input data, using <code>setNames(names(input_orig))</code>.</p>
+<pre class="r"><code>blimp_output &lt;- suppressMessages(read_csv(url(
+  str_c(urlRemote_path, github_path, 
+        &quot;BLIMP-impute-output.csv&quot;)
+))) %&gt;% 
+  pivot_wider(names_from = item,
+              values_from = response) %&gt;%
+  setNames(names(input_orig))</code></pre>
+<p>Now we initialize a character vector <code>col_subsets</code>, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.</p>
+<pre class="r"><code>col_subsets &lt;- c(&quot;i001:i050&quot;, &quot;i051:i084&quot;, &quot;i085:i114&quot;, &quot;i115:i185&quot;, 
+               &quot;i186:i206&quot;, &quot;i207:i251&quot;, &quot;i252:i293&quot;)</code></pre>
+<p>The next code segment returns a data frame whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case.</p>
+<pre class="r"><code>miss_recode &lt;- col_subsets %&gt;%
+  map_df(
+    ~
+      input_orig %&gt;%
+      filter(across(!!rlang::parse_expr(.x),
+                    ~ is.na(.))) %&gt;%
+      mutate(recode_cols1 = .x) %&gt;%
+      select(ID, recode_cols1)
+  ) %&gt;%
+  arrange(ID) %&gt;%</code></pre>
 </div>
 </div>
 

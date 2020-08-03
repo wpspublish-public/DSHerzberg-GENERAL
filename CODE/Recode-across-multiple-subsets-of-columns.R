@@ -1,23 +1,14 @@
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
-# read data from remote URL
 urlRemote_path  <- "https://raw.githubusercontent.com/"
 github_path <- "DSHerzberg/GENERAL/master/INPUT-FILES/"
 
-# read input file where cases are missing for complete subsets of columns, with
-# cases missing one, two or three subsets.
 input_orig <- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, 
         "Recode-across-multiple-subsets-of-columns-dataOrig.csv")
 )))
 
-# Read the output file that BLIMP generates when it imputes the missing data in
-# `input_orig`. In this output, there is no missing data. NOTE: in this demo,
-# "BLIMP-impute-output.csv" has column names. Usually, the raw output from a
-# BLIMP imputation doesn't have column names. In this case, we use the argument
-# `col_names = F` in the call of `read_csv()`, and we name the cols by
-# insertating `setNames(c("ID", "item", "response"))` into the pipeline.
 blimp_output <- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, 
         "BLIMP-impute-output.csv")
