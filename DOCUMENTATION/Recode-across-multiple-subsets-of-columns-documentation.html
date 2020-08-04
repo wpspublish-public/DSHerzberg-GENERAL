@@ -490,8 +490,10 @@ blimp_recode &lt;- blimp_output %&gt;%
 <p>Now we initialize a character vector <code>col_subsets</code>, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.</p>
 <pre class="r"><code>col_subsets &lt;- c(&quot;i001:i050&quot;, &quot;i051:i084&quot;, &quot;i085:i114&quot;, &quot;i115:i185&quot;, 
                &quot;i186:i206&quot;, &quot;i207:i251&quot;, &quot;i252:i293&quot;)</code></pre>
-<p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case. The basic structure is to use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the item ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current element of <code>col_subsets</code> into the code.</p>
-<p>Central to this operation is <code>dplyr::filter()</code> which finds cases missing on all columns within a range. To pass the column ranges into <code>filter()</code>, we need R to evaluate <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string.</p>
+<p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case. The basic structure is to use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the item ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current element of <code>col_subsets</code> (e.g., <code>&quot;i001:i050&quot;</code>) into the code.</p>
+<p>Central to this operation is <code>dplyr::filter()</code> which finds cases (rows) that meet logical criteria. To pass the column ranges into <code>filter()</code>, we use the helper <code>dplyr::across()</code>, which specifies a set of columns to be tested with the logical predicate. Within <code>across</code>, we need R to evaluate the column range <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string. We can unquote the string using the <code>!!</code> operator, and then transform it into an expression with <code>rlang::parse_expr()</code>. We then specify the logical predicate <code>~ is.na(.)</code>, by which <code>filter()</code> will pick rows. <code>filter()</code> will thereby return only rows that are missing <code>NA</code> on <em>all</em> columns within the range currently specified by <code>.x</code>, which is passed into <code>is.na()</code> with the single dot <code>.</code> shorthand.</p>
+<p>We then use <code>dplyr::mutate()</code> to create a new variable <code>recode_cols1</code> that holds the label of the column range that is all missing for the filtered rows. <code>mutate()</code> can operate on <code>.x</code> with out any NSE transformations, because the value of <code>.x</code> is a string, which the variable type that we need to represent the column range in <code>recode_cols1</code>. We use <code>dplyr::select()</code> to keep only the two columns we need.</p>
+<p>At this point, if a case is all missing on more than one column range, it has a duplicate <code>ID</code> row for each of the ranges. We use <code>dplyr::arrange()</code> to sort the rows by <code>ID</code>, so the duplicate <code>ID</code> rows are adjacent to one another.</p>
 <pre class="r"><code>miss_recode &lt;- col_subsets %&gt;%
   map_df(
     ~
@@ -502,6 +504,16 @@ blimp_recode &lt;- blimp_output %&gt;%
       select(ID, recode_cols1)
   ) %&gt;%
   arrange(ID) %&gt;%</code></pre>
+<p>We need now to execute a transformation through which the cases with multiple column ranges missing have the labels for those ranges placed in adjacent columns, as oppose to adjacent rows.</p>
+<pre class="r"><code>  mutate(
+    streak = runner::streak_run(ID),
+    recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
+                             T ~ NA_character_),
+    recode_cols3 = case_when(lead(streak, 2) == 3 ~ lead(recode_cols1, 2),
+                             T ~ NA_character_)
+  ) %&gt;% 
+  filter(streak == 1) %&gt;% 
+  select(-streak)</code></pre>
 </div>
 </div>
 

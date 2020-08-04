@@ -17,32 +17,15 @@ blimp_output <- suppressMessages(read_csv(url(
               values_from = response) %>%
   setNames(names(input_orig))
 
-# Initialize char vec containing the subsets of columns that may be missing in
-# input_orig
 col_subsets <- c("i001:i050", "i051:i084", "i085:i114", "i115:i185", 
                "i186:i206", "i207:i251", "i252:i293")
 
-# this section has code to handle when a single case has up to three column
-# subsets that need to be recoded - these are now identified in recode_cols1,
-# recode_cols2, recode_cols3. 
 miss_recode <- col_subsets %>%
-  # map over the column subsets, map_df() returns a data frame
   map_df(
     ~
       input_orig %>%
-      # Because the elements of col_subsets need to be processed as R
-      # expressions (e.g., "i001:i050" uses `:` to express a range of columns),
-      # we use `rlang::parse_expr()` to transform the char string into an
-      # expression, and we then unquote it using `!!`. Now across() designates
-      # the subset of columns to be processed by filter. filter() retains only
-      # rows that are NA on all of the cols in each subset.
       filter(across(!!rlang::parse_expr(.x),
                     ~ is.na(.))) %>%
-      # mutate creates a new col `recode_cols1` that holds the label of the
-      # first subset of cols where that row has all NA in `input_orig`.
-      # `mutate()` can evaluate `.x` without any NSE transformation, because the
-      # cell values of `recode_cols1` are intended to be char strings, and we
-      # are mapping over a char vector `col_subsets`,
       mutate(recode_cols1 = .x) %>%
       select(ID, recode_cols1)
   ) %>%
