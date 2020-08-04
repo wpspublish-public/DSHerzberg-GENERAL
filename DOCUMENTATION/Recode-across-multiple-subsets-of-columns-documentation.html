@@ -490,7 +490,8 @@ blimp_recode &lt;- blimp_output %&gt;%
 <p>Now we initialize a character vector <code>col_subsets</code>, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.</p>
 <pre class="r"><code>col_subsets &lt;- c(&quot;i001:i050&quot;, &quot;i051:i084&quot;, &quot;i085:i114&quot;, &quot;i115:i185&quot;, 
                &quot;i186:i206&quot;, &quot;i207:i251&quot;, &quot;i252:i293&quot;)</code></pre>
-<p>The next code segment returns a data frame whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case.</p>
+<p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case. The basic structure is to use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the item ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current element of <code>col_subsets</code> into the code.</p>
+<p>Central to this operation is <code>dplyr::filter()</code> which finds cases missing on all columns within a range. To pass the column ranges into <code>filter()</code>, we need R to evaluate <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string.</p>
 <pre class="r"><code>miss_recode &lt;- col_subsets %&gt;%
   map_df(
     ~
