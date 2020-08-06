@@ -375,6 +375,7 @@ summary {
 </ol>
 <p>In these data sets, we first used BLIMP to impute all missing values, but then needed to go back and recode to missing certain subsets of items that were originally missing because the examinee did not attempt the subtests (type 2).</p>
 <p>To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original <code>NA</code> status.</p>
+<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
 <div id="runnable-code" class="section level6">
 <h6>RUNNABLE CODE</h6>
 <pre class="r"><code>library(tidyverse)
@@ -417,6 +418,8 @@ miss_recode &lt;- col_subsets %&gt;%
   ) %&gt;% 
   filter(streak == 1) %&gt;% 
   select(-streak)
+
+knitr::kable(slice(miss_recode, 7:9))
 
 blimp_recode &lt;- blimp_output %&gt;%
   left_join(miss_recode, by = &quot;ID&quot;) %&gt;%
@@ -490,10 +493,10 @@ blimp_recode &lt;- blimp_output %&gt;%
 <p>Now we initialize a character vector <code>col_subsets</code>, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.</p>
 <pre class="r"><code>col_subsets &lt;- c(&quot;i001:i050&quot;, &quot;i051:i084&quot;, &quot;i085:i114&quot;, &quot;i115:i185&quot;, 
                &quot;i186:i206&quot;, &quot;i207:i251&quot;, &quot;i252:i293&quot;)</code></pre>
-<p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case. The basic structure is to use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the item ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current element of <code>col_subsets</code> (e.g., <code>&quot;i001:i050&quot;</code>) into the code.</p>
-<p>Central to this operation is <code>dplyr::filter()</code> which finds cases (rows) that meet logical criteria. To pass the column ranges into <code>filter()</code>, we use the helper <code>dplyr::across()</code>, which specifies a set of columns to be tested with the logical predicate. Within <code>across</code>, we need R to evaluate the column range <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string. We can unquote the string using the <code>!!</code> operator, and then transform it into an expression with <code>rlang::parse_expr()</code>. We then specify the logical predicate <code>~ is.na(.)</code>, by which <code>filter()</code> will pick rows. <code>filter()</code> will thereby return only rows that are missing <code>NA</code> on <em>all</em> columns within the range currently specified by <code>.x</code>, which is passed into <code>is.na()</code> with the single dot <code>.</code> shorthand.</p>
-<p>We then use <code>dplyr::mutate()</code> to create a new variable <code>recode_cols1</code> that holds the label of the column range that is all missing for the filtered rows. <code>mutate()</code> can operate on <code>.x</code> with out any NSE transformations, because the value of <code>.x</code> is a string, which the variable type that we need to represent the column range in <code>recode_cols1</code>. We use <code>dplyr::select()</code> to keep only the two columns we need.</p>
-<p>At this point, if a case is all missing on more than one column range, it has a duplicate <code>ID</code> row for each of the ranges. We use <code>dplyr::arrange()</code> to sort the rows by <code>ID</code>, so the duplicate <code>ID</code> rows are adjacent to one another.</p>
+<p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need column subsets recoded, with up to three subsets identified per case. We use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the column ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current-iteration element of <code>col_subsets</code> (e.g., <code>&quot;i001:i050&quot;</code>) into the code.</p>
+<p>Central to this operation is <code>dplyr::filter()</code> which finds cases (rows) that meet logical criteria. To pass the column ranges into <code>filter()</code>, we use the helper <code>dplyr::across()</code>, which specifies a set of columns to be tested against a logical predicate. Within <code>across</code>, we need R to evaluate the column range <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string. We can unquote the string using the <code>!!</code> operator, and then transform it into an expression with <code>rlang::parse_expr()</code>. We then specify the logical predicate <code>~ is.na(.)</code>, by which <code>filter()</code> will pick rows. <code>filter()</code> thereby returns only rows that are missing <code>NA</code> on <em>all</em> columns within the range currently specified by <code>.x</code>, which is passed into <code>is.na()</code> with the single dot <code>.</code> shorthand.</p>
+<p>We then use <code>dplyr::mutate()</code> to create a new variable <code>recode_cols1</code> that holds the label of the first column range that is all missing for the filtered rows. Here, <code>mutate()</code> can operate on <code>.x</code> with out any NSE transformations, because the value of <code>.x</code> is a string, which is the correct variable type to represent the column range in <code>recode_cols1</code>. We use <code>dplyr::select()</code> to keep only two columns going forward.</p>
+<p>In the current data object, if a case is all missing on more than one column range, it has a duplicate <code>ID</code> row for each of the ranges. We use <code>dplyr::arrange()</code> to sort the rows by <code>ID</code>, so the duplicate <code>ID</code> rows are adjacent to one another.</p>
 <pre class="r"><code>miss_recode &lt;- col_subsets %&gt;%
   map_df(
     ~
@@ -504,7 +507,12 @@ blimp_recode &lt;- blimp_output %&gt;%
       select(ID, recode_cols1)
   ) %&gt;%
   arrange(ID) %&gt;%</code></pre>
-<p>We need now to execute a transformation through which the cases with multiple column ranges missing have the labels for those ranges placed in adjacent columns, as oppose to adjacent rows.</p>
+<p>We now execute a transformation by which cases with multiple missing column ranges missing have the labels for those ranges placed in new columns, as oppose to adjacent rows within the <code>recode_cols1</code> column. To do this, we use <code>mutate()</code> to create three new columns. <code>streak</code> is the output of <code>runner::streak_run(ID)</code>, which returns each row’s ordinal position within a sequence of consecutive instances of identical values of <code>ID</code>. In other words, <code>streak</code> is always 1 for non-duplicate values of <code>ID</code>. For duplicate <code>ID</code> rows, <code>streak</code> is 2 or 3, respectively, for the second or third consecutive occurrence of the same <code>ID</code> value.</p>
+<p><code>recode_cols2</code> and <code>recode_cols3</code> are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of <code>ID</code>, with appropriate range labels in <code>recode_cols1</code>, <code>recode_cols2</code>, and <code>recode_cols3</code>, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical <code>ID</code> rows, where the value of <code>streak</code> is 1.</p>
+<p>For cases with more than one all-missing range, the labels for the second and third ranges are now located in adjacent rows within the <code>recode_cols1</code> column. In the rows containing the second and third missing ranges, <code>streak</code> is 2 or 3, respectively. To copy the labels for these second and third missing ranges into <code>recode_cols2</code> and <code>recode_cols3</code>, we use <code>dplyr::case_when()</code>, which assigns values to a variable based on logical conditions.</p>
+<p>We identify the first row in a set of duplicate <code>ID</code> rows with the predicate <code>lead(streak) == 2</code>, where <code>lead()</code> refers to the next row moving downward. This captures only the first rows in sets of identical <code>ID</code> values, because by definition, only these rows are adjacent to rows where <code>streak</code> is 2. For these first rows in sets of identical <code>ID</code> values, then, <code>case_when()</code> assigns a value to <code>recode_cols2</code> that it plucks from <code>recode_cols1</code> in the next row, where <code>streak</code> is 2 (using the formula <code>~ lead(recode_cols1)</code>. This value is the label for the second all-missing range for that case. For any row that is <em>not</em> the first row in a set of identical <code>ID</code> values, <code>case_when()</code> returns <code>NA</code>, via the argument <code>T ~ NA_character_</code>, which defines the “else” logical condition.</p>
+<p>We assign values for <code>recode_cols3</code> with a similar procedure, except here we look ahead <em>two</em> rows, by passing the argument <code>2</code> to <code>lead()</code>. Two rows ahead is where we will find the label for any third set of all-missing columns (and where the value of <code>streak</code> is 3).</p>
+<p>To finish the procedure, we drop the superfluous duplicate <code>ID</code> rows by calling <code>filter(streak == 1)</code>. We no longer need rows where <code>streak</code> is 2 or 3, because those rows contain column range labels are now registered in <code>recode_cols2</code> and <code>recode_cols3</code>. The resulting data object <code>miss_recode</code> contains a single row for each case that requires recoding of column ranges.</p>
 <pre class="r"><code>  mutate(
     streak = runner::streak_run(ID),
     recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
@@ -514,6 +522,23 @@ blimp_recode &lt;- blimp_output %&gt;%
   ) %&gt;% 
   filter(streak == 1) %&gt;% 
   select(-streak)</code></pre>
+<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
+<pre class="r"><code>knitr::kable(slice(miss_recode, 7:9))</code></pre>
+<p>The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use <code>dplyr::left_join()</code> to bind the <code>blimp_output</code> and <code>miss_recode</code> data frames, passing <code>by = &quot;ID&quot;</code> to align the columns by <code>ID</code>. We <code>relocate()</code> columns to obtain a desired sequence.</p>
+<p>We then <code>pivot_longer()</code> to transform the data object into the tall (multilevel format), in which items and responses are nested within each value of <code>ID</code>. In the argument <code>cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3)</code> we exclude the four named columns from the pivot to the longer format, thus establishing that in the outer level of nesting, each value of <code>ID</code> will be paired with the correct labels contained in the three <code>recode_cols</code> columns. In the resulting long data object, the input column names are contained in a single column given by the argument <code>names_to = c(&quot;item&quot;)</code>, and the paired responses are contained the <code>value</code> column. As a result, we now need only recode values in a single column. In the wide format, we would have needed to recode multiple columns, which would require more elaborate code.</p>
+<pre class="r"><code>blimp_recode &lt;- blimp_output %&gt;%
+  left_join(miss_recode, by = &quot;ID&quot;) %&gt;%
+  relocate(c(recode_cols1, recode_cols2, recode_cols3), .after = &quot;ID&quot;) %&gt;%
+  pivot_longer(cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3),
+               names_to = c(&quot;item&quot;)) %&gt;%</code></pre>
+<p>We now use <code>tidyr::extract()</code> to create new columns that will hold markers delineating the ranges of rows in the <code>value</code> column that need to be recoded. Here we examine only the code segment that operates on <code>recode_cols1</code>; an analogous procedure is used on <code>recode_cols2</code> and <code>recode_cols3</code>.</p>
+<p><code>extract()</code> splits strings contained in one column and places each part into a new column. The first argument names <code>recode_cols1</code> as the source column, and the second argument (<code>into =</code>) names <code>start1</code> and <code>end1</code> as the two destination columns. The third argument <code>&quot;([:alnum:]{4})?\\:?(.*)&quot;</code> is a regular expression that specifies how and where to split the value contained in <code>recode_cols1</code> into two strings. For example, we can split the range label <code>&quot;i001:i050&quot;</code> into <code>i001</code> (the first item number in the range) and <code>i050</code> (the last item number in the range). Within the regular expression the <code>?</code> characters separate the string segment going to <code>start1</code> (<code>([:alnum:]{4})</code>), the string segment dropped in the transformation (<code>\\:</code>), and the string segment going to <code>end1</code> (<code>(.*)</code>). The final argument <code>remove = F</code> indicates that the source column will be retained in the output.</p>
+<pre class="r"><code>  extract(
+    recode_cols1,
+    into = c(&quot;start1&quot;, &quot;end1&quot;),
+    &quot;([:alnum:]{4})?\\:?(.*)&quot;,
+    remove = F
+  ) %&gt;%</code></pre>
 </div>
 </div>
 

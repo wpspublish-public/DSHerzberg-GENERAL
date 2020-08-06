@@ -18,6 +18,7 @@ In these data sets, we first used BLIMP to impute all missing values, but then n
 
 To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original `NA` status.
 
+<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
 ###### RUNNABLE CODE
 ```{r script, eval = F}
 library(tidyverse)
@@ -60,6 +61,8 @@ miss_recode <- col_subsets %>%
   ) %>% 
   filter(streak == 1) %>% 
   select(-streak)
+
+knitr::kable(slice(miss_recode, 7:9))
 
 blimp_recode <- blimp_output %>%
   left_join(miss_recode, by = "ID") %>%
@@ -129,23 +132,38 @@ Additionally, the BLIMP output is in tall (multi-level) format, in which items a
 Now we initialize a character vector `col_subsets`, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.
 ```{r script, echo = 19:20, eval = F}
 ```
-The next code segment returns a data frame `miss_recode` whose rows are the cases that need item subsets recoded, identifying up to three subsets for each case. The basic structure is to use `map_df()` to apply functions to `input_orig`, iterating over the item ranges contained in `col_subsets`. Thus, wherever the token `.x` appears, `map_df()` substitutes the current element of `col_subsets` (e.g., `"i001:i050"`) into the code.
+The next code segment returns a data frame `miss_recode` whose rows are the cases that need column subsets recoded, with up to three subsets identified per case. We use `map_df()` to apply functions to `input_orig`, iterating over the column ranges contained in `col_subsets`. Thus, wherever the token `.x` appears, `map_df()` substitutes the current-iteration element of `col_subsets` (e.g., `"i001:i050"`) into the code.
 
-Central to this operation is `dplyr::filter()` which finds cases (rows) that meet logical criteria. To pass the column ranges into `filter()`, we use the helper `dplyr::across()`, which specifies a set of columns to be tested with the logical predicate. Within `across`, we need R to evaluate the column range `"i001:i050"` (for example) as an _expression_, not as a string. We can unquote the string using the `!!` operator, and then transform it into an expression with `rlang::parse_expr()`. We then specify the logical predicate `~ is.na(.)`, by which `filter()` will pick rows. `filter()` will thereby return only rows that are missing `NA` on _all_ columns within the range currently specified by `.x`, which is passed into `is.na()` with the single dot `.` shorthand.
+Central to this operation is `dplyr::filter()` which finds cases (rows) that meet logical criteria. To pass the column ranges into `filter()`, we use the helper `dplyr::across()`, which specifies a set of columns to be tested against a logical predicate. Within `across`, we need R to evaluate the column range `"i001:i050"` (for example) as an _expression_, not as a string. We can unquote the string using the `!!` operator, and then transform it into an expression with `rlang::parse_expr()`. We then specify the logical predicate `~ is.na(.)`, by which `filter()` will pick rows. `filter()` thereby returns only rows that are missing `NA` on _all_ columns within the range currently specified by `.x`, which is passed into `is.na()` with the single dot `.` shorthand.
 
-We then use `dplyr::mutate()` to create a new variable `recode_cols1` that holds the label of the column range that is all missing for the filtered rows. `mutate()` can operate on `.x` with out any NSE transformations, because the value of `.x` is a string, which the variable type that we need to represent the column range in `recode_cols1`.  We use `dplyr::select()` to keep only the two columns we need.
+We then use `dplyr::mutate()` to create a new variable `recode_cols1` that holds the label of the first column range that is all missing for the filtered rows. Here, `mutate()` can operate on `.x` with out any NSE transformations, because the value of `.x` is a string, which is the correct variable type to represent the column range in `recode_cols1`.  We use `dplyr::select()` to keep only two columns going forward.
 
-At this point, if a case is all missing on more than one column range, it has a duplicate `ID` row for each of the ranges. We use `dplyr::arrange()` to sort the rows by `ID`, so the duplicate `ID` rows are adjacent to one another.
+In the current data object, if a case is all missing on more than one column range, it has a duplicate `ID` row for each of the ranges. We use `dplyr::arrange()` to sort the rows by `ID`, so the duplicate `ID` rows are adjacent to one another.
 ```{r script, echo = 22:31, eval = F}
 ```
-We need now to execute a transformation by which the cases with multiple column ranges missing have the labels for those ranges placed in adjacent columns, as oppose to adjacent rows. To do this, we use `mutate()` to create three new columns. `streak` is the output of `runner::streak_run(ID)`, which, for each row, returns the count of consecutive instances of identical values of `ID`. Because the duplicate `ID` rows are adjacent, this function captures how many rows are duplicates, for each value of `ID` that has more than one row.
+We now execute a transformation by which cases with multiple missing column ranges missing have the labels for those ranges placed in new columns, as oppose to adjacent rows within the `recode_cols1` column. To do this, we use `mutate()` to create three new columns. `streak` is the output of `runner::streak_run(ID)`, which returns each row's ordinal position within a sequence of consecutive instances of identical values of `ID`. In other words, `streak` is always 1 for non-duplicate values of `ID`. For duplicate `ID` rows, `streak` is 2 or 3, respectively, for the second or third consecutive occurrence of the same `ID` value.
 
-`recode_cols2` and `recode_cols3` are variables that hold the column ranges for those cases that have two or three ranges that are all missing. Our goal is to end up with a single row for each value of `ID`, with appropriate range labels in `recode_cols1`, `recode_cols2`, and `recode_cols3`, depending on how many column ranges are missing for each case. We want that single row to be the first in a set of identical `ID` rows, where the value of `streak` is 1.
+`recode_cols2` and `recode_cols3` are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of `ID`, with appropriate range labels in `recode_cols1`, `recode_cols2`, and `recode_cols3`, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical `ID` rows, where the value of `streak` is 1.
 
-For cases with more than one missing range, the labels for the second and third ranges are now located in adjacent rows. The second missing range has the value of 2 for `streak`, and the third missing range has the value of 3 for `streak`. To assign values to `recode_cols2` and `recode_cols3`, we use `dplyr::case_when()`, which assigns values to a variable based on logical conditions.
+For cases with more than one all-missing range, the labels for the second and third ranges are now located in adjacent rows within the `recode_cols1` column. In the rows containing the second and third missing ranges, `streak` is 2 or 3, respectively. To copy the labels for these second and third missing ranges into `recode_cols2` and `recode_cols3`, we use `dplyr::case_when()`, which assigns values to a variable based on logical conditions.
 
-We identify the first row in a set of identical `ID` values with the predicate `lead(streak) == 2`, where `lead()` refers to the next row moving downward.  This captures only the first rows in sets of identical `ID` values, because any row that is not part of such a set would not be next to a row where `streak` is 2. For these first rows in sets of identical `ID` values, then, `case_when()` assigns a value to `recode_cols2` that it plucks from `recode_cols` in the next row, where `streak` is 2 (using the formula `~ lead(recode_cols1)`. This by definition is the label for the second all-missing range for that case. For any row that is _not_ the first row in a set of identical `ID` values, `case_when()` returns `NA`, via the argument `T ~ NA_character_`, which defines the "else" logical condition.
+We identify the first row in a set of duplicate `ID` rows with the predicate `lead(streak) == 2`, where `lead()` refers to the next row moving downward.  This captures only the first rows in sets of identical `ID` values, because by definition, only these rows are adjacent to rows where `streak` is 2. For these first rows in sets of identical `ID` values, then, `case_when()` assigns a value to `recode_cols2` that it plucks from `recode_cols1` in the next row, where `streak` is 2 (using the formula `~ lead(recode_cols1)`. This value is the label for the second all-missing range for that case. For any row that is _not_ the first row in a set of identical `ID` values, `case_when()` returns `NA`, via the argument `T ~ NA_character_`, which defines the "else" logical condition.
 
-Values for `recode_cols3` are assigned with a similar procedure, except that we look ahead _two_ rows, by passing the argument `2` to `lead()`, where we find the label for any third set of all-missing columns where `streak` is 3.
+We assign values for `recode_cols3` with a similar procedure, except here we look ahead _two_ rows, by passing the argument `2` to `lead()`. Two rows ahead is where we will find the label for any third set of all-missing columns (and where the value of `streak` is 3).
+
+To finish the procedure, we drop the superfluous duplicate `ID` rows by calling `filter(streak == 1)`. We no longer need rows where `streak` is 2 or 3, because those rows contain column range labels are now registered in `recode_cols2` and `recode_cols3`. The resulting data object `miss_recode` contains a single row for each case that requires recoding of column ranges.
 ```{r script, echo = 32:40, eval = F}
+```
+<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
+```{r script, echo = 42, eval = F}
+```
+The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use `dplyr::left_join()` to bind the `blimp_output` and `miss_recode` data frames, passing `by = "ID"` to align the columns by `ID`. We `relocate()` columns to obtain a desired sequence. 
+
+We then `pivot_longer()` to transform the data object into the tall (multilevel format), in which items and responses are nested within each value of `ID`. In the argument `cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3)` we exclude the four named columns from the pivot to the longer format, thus establishing that in the outer level of nesting, each value of `ID` will be paired with the correct labels contained in the three `recode_cols` columns. In the resulting long data object, the input column names are contained in a single column given by the argument `names_to = c("item")`, and the paired responses are contained the `value` column. As a result, we now need only recode values in a single column. In the wide format, we would have needed to recode multiple columns, which would require more elaborate code.
+```{r script, echo = 44:48, eval = F}
+```
+We now use `tidyr::extract()` to create new columns that will hold markers delineating the ranges of rows in the `value` column that need to be recoded. Here we examine only the code segment that operates on `recode_cols1`; an analogous procedure is used on `recode_cols2` and `recode_cols3`.
+
+`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([:alnum:]{4})?\\:?(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression the `?` characters separate the string segment going to `start1` (`([:alnum:]{4})`), the string segment dropped in the transformation (`\\:`), and the string segment going to `end1` (`(.*)`). The final argument `remove = F` indicates that the source column will be retained in the output.
+```{r script, echo = 49:54, eval = F}
 ```

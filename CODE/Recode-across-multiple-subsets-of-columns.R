@@ -29,39 +29,22 @@ miss_recode <- col_subsets %>%
       mutate(recode_cols1 = .x) %>%
       select(ID, recode_cols1)
   ) %>%
-  # at this point, if a case has two or three missing subsets, the object has
-  # dup rows for that case. We sort by ID so those dup ID rows will be adjacent to
-  # each other
   arrange(ID) %>%
-  # runner::streak_run() processes down the rows and gives a running count of
-  # consecutive identical values of ID.
-  mutate(
+   mutate(
     streak = runner::streak_run(ID),
-    # Now we create two new cols which hold, for cases that have more than one
-    # subset missing, the labels for those 2nd and 3rd subsets. We use
-    # lead(streak) to populate recode_cols2 with the appropriate label, by
-    # addressing and grabbing values from one row ahead Similarly, we use lead(n
-    # = 2) to address and grab from two rows ahead.
-    recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
+     recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
                              T ~ NA_character_),
     recode_cols3 = case_when(lead(streak, 2) == 3 ~ lead(recode_cols1, 2),
                              T ~ NA_character_)
   ) %>% 
-  # The streak var makes it easy to keep only the first row of each set of dups,
-  # simply filter() for streak == 1. Then drop the streak var as it is no longer
-  # needed.
   filter(streak == 1) %>% 
-  select(-streak)
+  select(-streak) 
 
-# This next section handles the recoding of col subsets in the BLIMP imputed
-# data set. First we join the `recode_cols` variables to blimp_output, thus
-# labeling the cases that need recoding.
+knitr::kable(slice(miss_recode, 7:9))
+
 blimp_recode <- blimp_output %>%
   left_join(miss_recode, by = "ID") %>%
   relocate(c(recode_cols1, recode_cols2, recode_cols3), .after = "ID") %>%
-  # We now pivot the data object to the tall (multilevel) format. This enables
-  # us to perform recoding within a single `item` column, rather than across
-  # multiple columns.
   pivot_longer(cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3),
                names_to = c("item")) %>%
   # we now use `tidyr::extract()` to extract the start and end item of each
