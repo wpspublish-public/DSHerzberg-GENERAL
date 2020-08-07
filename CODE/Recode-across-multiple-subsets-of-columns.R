@@ -47,35 +47,25 @@ blimp_recode <- blimp_output %>%
   relocate(c(recode_cols1, recode_cols2, recode_cols3), .after = "ID") %>%
   pivot_longer(cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3),
                names_to = c("item")) %>%
-  # we now use `tidyr::extract()` to extract the start and end item of each
-  # column subset, and place those values into new `start` and `end` cols.
-  # `"([:alnum:]{4})?\\:?(.*)"` is a regular expression that tells how and where
-  # to split the string contained in `recode_cols` into two separate strings.
-  # `remove = F` leaves the input column in place. As a result, we can now
-  # identify the rows to start and end the item recoding, with a simple logical
-  # predicate
   extract(
     recode_cols1,
     into = c("start1", "end1"),
-    "([:alnum:]{4})?\\:?(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols2,
     into = c("start2", "end2"),
-    "([:alnum:]{4})?\\:?(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols3,
     into = c("start3", "end3"),
-    "([:alnum:]{4})?\\:?(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   group_by(ID) %>%
-  # we now create a new col `recode_run` to label the rows that need recoding.
-  # We mark this column where the `start` and `end` cols indicate the start and
-  # end of the run of rows that needs recoding.
   mutate(
     recode_run =
       case_when(

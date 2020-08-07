@@ -72,19 +72,19 @@ blimp_recode <- blimp_output %>%
   extract(
     recode_cols1,
     into = c("start1", "end1"),
-    "([:alnum:]{4})?\\:?(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols2,
     into = c("start2", "end2"),
-    "([:alnum:]{4})?\\:?(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols3,
     into = c("start3", "end3"),
-    "([:alnum:]{4})?\\:?(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   group_by(ID) %>%
@@ -164,6 +164,13 @@ We then `pivot_longer()` to transform the data object into the tall (multilevel 
 ```
 We now use `tidyr::extract()` to create new columns that will hold markers delineating the ranges of rows in the `value` column that need to be recoded. Here we examine only the code segment that operates on `recode_cols1`; an analogous procedure is used on `recode_cols2` and `recode_cols3`.
 
-`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([:alnum:]{4})?\\:?(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression the `?` characters separate the string segment going to `start1` (`([:alnum:]{4})`), the string segment dropped in the transformation (`\\:`), and the string segment going to `end1` (`(.*)`). The final argument `remove = F` indicates that the source column will be retained in the output.
+`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([:alnum:]{4}):(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to `start1` (`([:alnum:]{4})`) and `end1` (`(.*)`). Characters outside the parentheses (e.g., `:`) are dropped. The final argument `remove = F` indicates that the source column will be retained in the output.
+
+This `extract()` sequence is repeated for `recode_cols2` and `recode_cols3`, creating `start` and `end` columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.
 ```{r script, echo = 49:54, eval = F}
+```
+In the next sequence, we use `runner::fill_run()` to label rows (items) for recoding. Because we need `fill_run()` to operate only within values of `ID` (that is, within single cases), we call `dplyr::group_by()` to group the data object by `ID`.
+
+We then invoke `mutate()` to create a new column `recode_run` to hold the start and end points for the item ranges to be recoded. We assign values using `case_when`, marking the start item for first range to be recoded with the expression `start1 == item ~ "recode1"`. When evaluated, this expression finds the row that represents the item named in `start1`; that is, the _first_ item in the first item range to be recoded. In this row, it assigns the value `recode1` to the column `recode_run`. With the expression `end1 == item ~ "recode1"`, `case_when()` assigns `recode1` to mark the row containing the _last_ item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (`ID`) are now marked.
+```{r script, echo = 67:78, eval = F}
 ```

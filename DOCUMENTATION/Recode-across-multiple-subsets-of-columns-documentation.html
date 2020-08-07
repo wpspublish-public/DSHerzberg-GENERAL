@@ -429,19 +429,19 @@ blimp_recode &lt;- blimp_output %&gt;%
   extract(
     recode_cols1,
     into = c(&quot;start1&quot;, &quot;end1&quot;),
-    &quot;([:alnum:]{4})?\\:?(.*)&quot;,
+    &quot;([:alnum:]{4}):(.*)&quot;,
     remove = F
   ) %&gt;%
   extract(
     recode_cols2,
     into = c(&quot;start2&quot;, &quot;end2&quot;),
-    &quot;([:alnum:]{4})?\\:?(.*)&quot;,
+    &quot;([:alnum:]{4}):(.*)&quot;,
     remove = F
   ) %&gt;%
   extract(
     recode_cols3,
     into = c(&quot;start3&quot;, &quot;end3&quot;),
-    &quot;([:alnum:]{4})?\\:?(.*)&quot;,
+    &quot;([:alnum:]{4}):(.*)&quot;,
     remove = F
   ) %&gt;%
   group_by(ID) %&gt;%
@@ -532,13 +532,28 @@ blimp_recode &lt;- blimp_output %&gt;%
   pivot_longer(cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3),
                names_to = c(&quot;item&quot;)) %&gt;%</code></pre>
 <p>We now use <code>tidyr::extract()</code> to create new columns that will hold markers delineating the ranges of rows in the <code>value</code> column that need to be recoded. Here we examine only the code segment that operates on <code>recode_cols1</code>; an analogous procedure is used on <code>recode_cols2</code> and <code>recode_cols3</code>.</p>
-<p><code>extract()</code> splits strings contained in one column and places each part into a new column. The first argument names <code>recode_cols1</code> as the source column, and the second argument (<code>into =</code>) names <code>start1</code> and <code>end1</code> as the two destination columns. The third argument <code>&quot;([:alnum:]{4})?\\:?(.*)&quot;</code> is a regular expression that specifies how and where to split the value contained in <code>recode_cols1</code> into two strings. For example, we can split the range label <code>&quot;i001:i050&quot;</code> into <code>i001</code> (the first item number in the range) and <code>i050</code> (the last item number in the range). Within the regular expression the <code>?</code> characters separate the string segment going to <code>start1</code> (<code>([:alnum:]{4})</code>), the string segment dropped in the transformation (<code>\\:</code>), and the string segment going to <code>end1</code> (<code>(.*)</code>). The final argument <code>remove = F</code> indicates that the source column will be retained in the output.</p>
+<p><code>extract()</code> splits strings contained in one column and places each part into a new column. The first argument names <code>recode_cols1</code> as the source column, and the second argument (<code>into =</code>) names <code>start1</code> and <code>end1</code> as the two destination columns. The third argument <code>&quot;([:alnum:]{4}):(.*)&quot;</code> is a regular expression that specifies how and where to split the value contained in <code>recode_cols1</code> into two strings. For example, we can split the range label <code>&quot;i001:i050&quot;</code> into <code>i001</code> (the first item number in the range) and <code>i050</code> (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to <code>start1</code> (<code>([:alnum:]{4})</code>) and <code>end1</code> (<code>(.*)</code>). Characters outside the parentheses (e.g., <code>:</code>) are dropped. The final argument <code>remove = F</code> indicates that the source column will be retained in the output.</p>
+<p>This <code>extract()</code> sequence is repeated for <code>recode_cols2</code> and <code>recode_cols3</code>, creating <code>start</code> and <code>end</code> columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.</p>
 <pre class="r"><code>  extract(
     recode_cols1,
     into = c(&quot;start1&quot;, &quot;end1&quot;),
-    &quot;([:alnum:]{4})?\\:?(.*)&quot;,
+    &quot;([:alnum:]{4}):(.*)&quot;,
     remove = F
   ) %&gt;%</code></pre>
+<p>In the next sequence, we use <code>runner::fill_run()</code> to label rows (items) for recoding. Because we need <code>fill_run()</code> to operate only within values of <code>ID</code> (that is, within single cases), we call <code>dplyr::group_by()</code> to group the data object by <code>ID</code>.</p>
+<p>We then invoke <code>mutate()</code> to create a new column <code>recode_run</code> to hold the start and end points for the item ranges to be recoded. We assign values using <code>case_when</code>, marking the start item for first range to be recoded with the expression <code>start1 == item ~ &quot;recode1&quot;</code>. When evaluated, this expression finds the row that represents the item named in <code>start1</code>; that is, the <em>first</em> item in the first item range to be recoded. In this row, it assigns the value <code>recode1</code> to the column <code>recode_run</code>. With the expression <code>end1 == item ~ &quot;recode1&quot;</code>, <code>case_when()</code> assigns <code>recode1</code> to mark the row containing the <em>last</em> item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (<code>ID</code>) are now marked.</p>
+<pre class="r"><code>  group_by(ID) %&gt;%
+  mutate(
+    recode_run =
+      case_when(
+        start1 == item ~ &quot;recode1&quot;,
+        end1 == item ~ &quot;recode1&quot;,
+        start2 == item ~ &quot;recode2&quot;,
+        end2 == item ~ &quot;recode2&quot;,
+        start3 == item ~ &quot;recode3&quot;,
+        end3 == item ~ &quot;recode3&quot;,
+        T ~ NA_character_
+      ),</code></pre>
 </div>
 </div>
 
