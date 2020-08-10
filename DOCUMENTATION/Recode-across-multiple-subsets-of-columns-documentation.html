@@ -375,7 +375,6 @@ summary {
 </ol>
 <p>In these data sets, we first used BLIMP to impute all missing values, but then needed to go back and recode to missing certain subsets of items that were originally missing because the examinee did not attempt the subtests (type 2).</p>
 <p>To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original <code>NA</code> status.</p>
-<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
 <div id="runnable-code" class="section level6">
 <h6>RUNNABLE CODE</h6>
 <pre class="r"><code>library(tidyverse)
@@ -419,8 +418,6 @@ miss_recode &lt;- col_subsets %&gt;%
   filter(streak == 1) %&gt;% 
   select(-streak)
 
-knitr::kable(slice(miss_recode, 7:9))
-
 blimp_recode &lt;- blimp_output %&gt;%
   left_join(miss_recode, by = &quot;ID&quot;) %&gt;%
   relocate(c(recode_cols1, recode_cols2, recode_cols3), .after = &quot;ID&quot;) %&gt;%
@@ -456,9 +453,9 @@ blimp_recode &lt;- blimp_output %&gt;%
         end3 == item ~ &quot;recode3&quot;,
         T ~ NA_character_
       ),
-    across(c(recode_run),
+    across(recode_run,
            ~ runner::fill_run(., only_within = T)),
-    across(c(value),
+    across(value,
            ~ case_when(
              recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_,
              T ~ value
@@ -468,9 +465,7 @@ blimp_recode &lt;- blimp_output %&gt;%
   pivot_wider(
     names_from = item,
     values_from = value) %&gt;%
-  ungroup()
-
-# knitr::kable(head(blimp_recode))</code></pre>
+  ungroup()</code></pre>
 <p><br></p>
 </div>
 <div id="commented-snippets" class="section level6">
@@ -480,7 +475,7 @@ blimp_recode &lt;- blimp_output %&gt;%
   str_c(urlRemote_path, github_path, 
         &quot;Recode-across-multiple-subsets-of-columns-dataOrig.csv&quot;)
 )))</code></pre>
-<p>Now we read the output file that BLIMP generates when it imputes the missing data in <code>input_orig</code>. In this output, there are no missing data.</p>
+<p>Now we read the output file that BLIMP generates when it imputes the missing data from the original input. In this BLIMP output, there are no missing data.</p>
 <p>Note that in this demonstration, <code>BLIMP-impute-output.csv</code> has column names. Usually, the raw output from a BLIMP imputation lacks column names. In this case, we must use the argument <code>col_names = F</code> in the call of <code>read_csv()</code>; otherwise R will erroneously read the first row of data as column names. We can then name the columns appropriately by inserting <code>base::setNames(c(&quot;ID&quot;, &quot;item&quot;, &quot;response&quot;))</code> into the pipeline.</p>
 <p>Additionally, the BLIMP output is in tall (multi-level) format, in which items and responses are nested within ID numbers. We can use <code>tidyr::pivot_wider()</code> to transform the data object into wide format, drawing the item column names from the <code>item</code> column, and the imputed responses from the <code>response</code> column. We then rename all columns to match the naming scheme of the original input data, using <code>setNames(names(input_orig))</code>.</p>
 <pre class="r"><code>blimp_output &lt;- suppressMessages(read_csv(url(
@@ -507,7 +502,7 @@ blimp_recode &lt;- blimp_output %&gt;%
       select(ID, recode_cols1)
   ) %&gt;%
   arrange(ID) %&gt;%</code></pre>
-<p>We now execute a transformation by which cases with multiple missing column ranges missing have the labels for those ranges placed in new columns, as oppose to adjacent rows within the <code>recode_cols1</code> column. To do this, we use <code>mutate()</code> to create three new columns. <code>streak</code> is the output of <code>runner::streak_run(ID)</code>, which returns each row’s ordinal position within a sequence of consecutive instances of identical values of <code>ID</code>. In other words, <code>streak</code> is always 1 for non-duplicate values of <code>ID</code>. For duplicate <code>ID</code> rows, <code>streak</code> is 2 or 3, respectively, for the second or third consecutive occurrence of the same <code>ID</code> value.</p>
+<p>We now execute a transformation by which cases with multiple missing column ranges have the labels for those ranges placed in new columns, as oppose to adjacent rows within the <code>recode_cols1</code> column. To do this, we use <code>mutate()</code> to create three new columns. <code>streak</code> is the output of <code>runner::streak_run(ID)</code>, which returns each row’s ordinal position within a sequence of consecutive instances of identical values of <code>ID</code>. In other words, <code>streak</code> is always 1 for non-duplicate values of <code>ID</code>. For duplicate <code>ID</code> rows, <code>streak</code> is 2 or 3, respectively, for the second or third consecutive occurrence of the same <code>ID</code> value.</p>
 <p><code>recode_cols2</code> and <code>recode_cols3</code> are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of <code>ID</code>, with appropriate range labels in <code>recode_cols1</code>, <code>recode_cols2</code>, and <code>recode_cols3</code>, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical <code>ID</code> rows, where the value of <code>streak</code> is 1.</p>
 <p>For cases with more than one all-missing range, the labels for the second and third ranges are now located in adjacent rows within the <code>recode_cols1</code> column. In the rows containing the second and third missing ranges, <code>streak</code> is 2 or 3, respectively. To copy the labels for these second and third missing ranges into <code>recode_cols2</code> and <code>recode_cols3</code>, we use <code>dplyr::case_when()</code>, which assigns values to a variable based on logical conditions.</p>
 <p>We identify the first row in a set of duplicate <code>ID</code> rows with the predicate <code>lead(streak) == 2</code>, where <code>lead()</code> refers to the next row moving downward. This captures only the first rows in sets of identical <code>ID</code> values, because by definition, only these rows are adjacent to rows where <code>streak</code> is 2. For these first rows in sets of identical <code>ID</code> values, then, <code>case_when()</code> assigns a value to <code>recode_cols2</code> that it plucks from <code>recode_cols1</code> in the next row, where <code>streak</code> is 2 (using the formula <code>~ lead(recode_cols1)</code>. This value is the label for the second all-missing range for that case. For any row that is <em>not</em> the first row in a set of identical <code>ID</code> values, <code>case_when()</code> returns <code>NA</code>, via the argument <code>T ~ NA_character_</code>, which defines the “else” logical condition.</p>
@@ -522,8 +517,36 @@ blimp_recode &lt;- blimp_output %&gt;%
   ) %&gt;% 
   filter(streak == 1) %&gt;% 
   select(-streak)</code></pre>
-<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
-<pre class="r"><code>knitr::kable(slice(miss_recode, 7:9))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">ID</th>
+<th align="left">recode_cols1</th>
+<th align="left">recode_cols2</th>
+<th align="left">recode_cols3</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">230005</td>
+<td align="left">i085:i114</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="right">230010</td>
+<td align="left">i051:i084</td>
+<td align="left">i085:i114</td>
+<td align="left">i207:i251</td>
+</tr>
+<tr class="odd">
+<td align="right">230019</td>
+<td align="left">i051:i084</td>
+<td align="left">i085:i114</td>
+<td align="left">NA</td>
+</tr>
+</tbody>
+</table>
 <p>The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use <code>dplyr::left_join()</code> to bind the <code>blimp_output</code> and <code>miss_recode</code> data frames, passing <code>by = &quot;ID&quot;</code> to align the columns by <code>ID</code>. We <code>relocate()</code> columns to obtain a desired sequence.</p>
 <p>We then <code>pivot_longer()</code> to transform the data object into the tall (multilevel format), in which items and responses are nested within each value of <code>ID</code>. In the argument <code>cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3)</code> we exclude the four named columns from the pivot to the longer format, thus establishing that in the outer level of nesting, each value of <code>ID</code> will be paired with the correct labels contained in the three <code>recode_cols</code> columns. In the resulting long data object, the input column names are contained in a single column given by the argument <code>names_to = c(&quot;item&quot;)</code>, and the paired responses are contained the <code>value</code> column. As a result, we now need only recode values in a single column. In the wide format, we would have needed to recode multiple columns, which would require more elaborate code.</p>
 <pre class="r"><code>blimp_recode &lt;- blimp_output %&gt;%
@@ -540,8 +563,8 @@ blimp_recode &lt;- blimp_output %&gt;%
     &quot;([:alnum:]{4}):(.*)&quot;,
     remove = F
   ) %&gt;%</code></pre>
-<p>In the next sequence, we use <code>runner::fill_run()</code> to label rows (items) for recoding. Because we need <code>fill_run()</code> to operate only within values of <code>ID</code> (that is, within single cases), we call <code>dplyr::group_by()</code> to group the data object by <code>ID</code>.</p>
-<p>We then invoke <code>mutate()</code> to create a new column <code>recode_run</code> to hold the start and end points for the item ranges to be recoded. We assign values using <code>case_when</code>, marking the start item for first range to be recoded with the expression <code>start1 == item ~ &quot;recode1&quot;</code>. When evaluated, this expression finds the row that represents the item named in <code>start1</code>; that is, the <em>first</em> item in the first item range to be recoded. In this row, it assigns the value <code>recode1</code> to the column <code>recode_run</code>. With the expression <code>end1 == item ~ &quot;recode1&quot;</code>, <code>case_when()</code> assigns <code>recode1</code> to mark the row containing the <em>last</em> item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (<code>ID</code>) are now marked.</p>
+<p>In the next sequence, we use the <code>runner</code> package to label rows (items) for recoding. Because we need <code>fill_run()</code> to operate only within values of <code>ID</code> (that is, within single cases), we call <code>dplyr::group_by()</code> to group the data object by <code>ID</code>.</p>
+<p>We then invoke <code>mutate()</code> to create a new column <code>recode_run</code> to hold the start and end points for the item ranges to be recoded. We assign values using <code>case_when()</code>, marking the start item for first range to be recoded with the expression <code>start1 == item ~ &quot;recode1&quot;</code>. When evaluated, this expression finds the row that represents the item named in <code>start1</code>; that is, the <em>first</em> item in the first item range to be recoded. In this row, it assigns the value <code>recode1</code> to the column <code>recode_run</code>. With the expression <code>end1 == item ~ &quot;recode1&quot;</code>, <code>case_when()</code> assigns <code>recode1</code> to mark the row containing the <em>last</em> item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (<code>ID</code>) are now marked, within the <code>recode_run</code> column.</p>
 <pre class="r"><code>  group_by(ID) %&gt;%
   mutate(
     recode_run =
@@ -554,6 +577,86 @@ blimp_recode &lt;- blimp_output %&gt;%
         end3 == item ~ &quot;recode3&quot;,
         T ~ NA_character_
       ),</code></pre>
+<p>We can use <code>runner::fill_run()</code> to fill in values between the labeled start and end rows. We use <code>across()</code> to address only the <code>recode_run</code> column, and call <code>fill_run()</code> with the formula shorthand <code>~</code>. We provide the <code>.</code> shorthand to specify <code>recode_run</code>, and pass the argument <code>only_within = T</code> to limit the filling of values to only those rows <em>between</em> the start and end points of item ranges to be recoded. As a result, each row in the first item range is now labeled with <code>recode1</code>, and similarly for the second and third item ranges.</p>
+<pre class="r"><code>    across(recode_run,
+           ~ runner::fill_run(., only_within = T)),</code></pre>
+<p>We use <code>case_when()</code> to recode the column <code>value</code>, recoding only the labeled rows to <code>NA</code>. The expression <code>recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_</code> specifies that whenever the value of <code>recode_run</code> is one of three elements <code>%in%</code> a character vector, the value of <code>value</code> will be changed to <code>NA</code>. Passing the “else” argument <code>T ~ value</code> leaves all other rows within <code>value</code> unchanged.</p>
+<pre class="r"><code>    across(value,
+           ~ case_when(
+             recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_,
+             T ~ value
+           ))
+  ) %&gt;%</code></pre>
+<p>Finishing up, we use <code>select()</code> to drop all columns except those needed to recreate the original wide format, in which we had only the ID and item columns. We <code>pivot_wider()</code> the data object back to wide format, drawing the item column names from the <code>item</code> column, and the item row values from the <code>value</code> column.</p>
+<pre class="r"><code>  select(ID, item, value) %&gt;%
+  pivot_wider(
+    names_from = item,
+    values_from = value) %&gt;%
+  ungroup()</code></pre>
+<p>The following table illustrates how the recoding process plays out for case <code>230010</code>, which is missing data both on subtests that the examinee attempted (Type 1), and on all items of subtests <em>NOT</em> attempted (Type 2). Specifically, <code>230010</code> is Type 2 missing on the item range <code>i051:i084</code>.</p>
+<p>The table shows items <code>i051</code> to <code>i060</code> for case <code>230010</code>, at three stages of the process. In the original input data <code>input_orig</code>, the item range is all <code>NA</code>, because the examinee did not attempt any items in this range. In the unrecoded <code>blimp_output</code>, the item range is all <code>1</code> because BLIMP imputed the missing data. In the recoded <code>blimp_recode</code>, the item range has been recoded back to its correct Type 2 state of <code>NA</code>. This recoding operation leaves the imputations in place for any Type 1 missing data.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="right">ID</th>
+<th align="left">data</th>
+<th align="right">i051</th>
+<th align="right">i052</th>
+<th align="right">i053</th>
+<th align="right">i054</th>
+<th align="right">i055</th>
+<th align="right">i056</th>
+<th align="right">i057</th>
+<th align="right">i058</th>
+<th align="right">i059</th>
+<th align="right">i060</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">230010</td>
+<td align="left">input_orig</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+<tr class="even">
+<td align="right">230010</td>
+<td align="left">blimp_output</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="right">230010</td>
+<td align="left">blimp_recode</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 

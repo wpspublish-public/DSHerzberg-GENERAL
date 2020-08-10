@@ -77,23 +77,14 @@ blimp_recode <- blimp_output %>%
         end3 == item ~ "recode3",
         T ~ NA_character_
       ),
-    # Here we use `runner::fill_run()` to fill in the recode_run column between
-    # the labeled start and end rows. `only_within = T` limits the fill to the
-    # span of rows between the start and end markers. The rows that need
-    # recoding are now completely labeled in the recode_run column.
-    across(c(recode_run),
+     across(recode_run,
            ~ runner::fill_run(., only_within = T)),
-    # We use `case_when()` to recode only those labeled rows to `NA`, leaving
-    # the remainder of the `values` col unchanged.
-    across(c(value),
+     across(value,
            ~ case_when(
              recode_run %in% c("recode1", "recode2", "recode3") ~ NA_real_,
              T ~ value
            ))
   ) %>%
-  # We drop all cols except those needed to recreate the original wide format,
-  # in which we had only the ID var and item cols. We pivot the data object back
-  # to the wide format, and write the output for downstream analysis.
   select(ID, item, value) %>%
   pivot_wider(
     names_from = item,

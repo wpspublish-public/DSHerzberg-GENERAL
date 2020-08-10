@@ -18,9 +18,8 @@ In these data sets, we first used BLIMP to impute all missing values, but then n
 
 To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original `NA` status.
 
-<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
 ###### RUNNABLE CODE
-```{r script, eval = F}
+```{r script, eval = T}
 library(tidyverse)
 
 urlRemote_path  <- "https://raw.githubusercontent.com/"
@@ -62,8 +61,6 @@ miss_recode <- col_subsets %>%
   filter(streak == 1) %>% 
   select(-streak)
 
-knitr::kable(slice(miss_recode, 7:9))
-
 blimp_recode <- blimp_output %>%
   left_join(miss_recode, by = "ID") %>%
   relocate(c(recode_cols1, recode_cols2, recode_cols3), .after = "ID") %>%
@@ -99,9 +96,9 @@ blimp_recode <- blimp_output %>%
         end3 == item ~ "recode3",
         T ~ NA_character_
       ),
-    across(c(recode_run),
+    across(recode_run,
            ~ runner::fill_run(., only_within = T)),
-    across(c(value),
+    across(value,
            ~ case_when(
              recode_run %in% c("recode1", "recode2", "recode3") ~ NA_real_,
              T ~ value
@@ -112,8 +109,6 @@ blimp_recode <- blimp_output %>%
     names_from = item,
     values_from = value) %>%
   ungroup()
-
-# knitr::kable(head(blimp_recode))
 ```
 
 <br>
@@ -122,7 +117,7 @@ blimp_recode <- blimp_output %>%
 First we read in the original input data set, which contains cases that are entirely missing on one, two, or three subsets of items. Note the use of `readr::read_csv(url())` to read in a file from a remote server (github).
 ```{r script, echo = 6:9, eval = F}
 ```
-Now we read the output file that BLIMP generates when it imputes the missing data in `input_orig`. In this output, there are no missing data. 
+Now we read the output file that BLIMP generates when it imputes the missing data from the original input. In this BLIMP output, there are no missing data. 
 
 Note that in this demonstration, `BLIMP-impute-output.csv` has column names. Usually, the raw output from a BLIMP imputation lacks column names. In this case, we must use the argument `col_names = F` in the call of `read_csv()`; otherwise R will erroneously read the first row of data as column names. We can then name the columns appropriately by inserting `base::setNames(c("ID", "item", "response"))` into the pipeline.
 
@@ -141,7 +136,7 @@ We then use `dplyr::mutate()` to create a new variable `recode_cols1` that holds
 In the current data object, if a case is all missing on more than one column range, it has a duplicate `ID` row for each of the ranges. We use `dplyr::arrange()` to sort the rows by `ID`, so the duplicate `ID` rows are adjacent to one another.
 ```{r script, echo = 22:31, eval = F}
 ```
-We now execute a transformation by which cases with multiple missing column ranges missing have the labels for those ranges placed in new columns, as oppose to adjacent rows within the `recode_cols1` column. To do this, we use `mutate()` to create three new columns. `streak` is the output of `runner::streak_run(ID)`, which returns each row's ordinal position within a sequence of consecutive instances of identical values of `ID`. In other words, `streak` is always 1 for non-duplicate values of `ID`. For duplicate `ID` rows, `streak` is 2 or 3, respectively, for the second or third consecutive occurrence of the same `ID` value.
+We now execute a transformation by which cases with multiple missing column ranges have the labels for those ranges placed in new columns, as oppose to adjacent rows within the `recode_cols1` column. To do this, we use `mutate()` to create three new columns. `streak` is the output of `runner::streak_run(ID)`, which returns each row's ordinal position within a sequence of consecutive instances of identical values of `ID`. In other words, `streak` is always 1 for non-duplicate values of `ID`. For duplicate `ID` rows, `streak` is 2 or 3, respectively, for the second or third consecutive occurrence of the same `ID` value.
 
 `recode_cols2` and `recode_cols3` are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of `ID`, with appropriate range labels in `recode_cols1`, `recode_cols2`, and `recode_cols3`, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical `ID` rows, where the value of `streak` is 1.
 
@@ -154,23 +149,59 @@ We assign values for `recode_cols3` with a similar procedure, except here we loo
 To finish the procedure, we drop the superfluous duplicate `ID` rows by calling `filter(streak == 1)`. We no longer need rows where `streak` is 2 or 3, because those rows contain column range labels are now registered in `recode_cols2` and `recode_cols3`. The resulting data object `miss_recode` contains a single row for each case that requires recoding of column ranges.
 ```{r script, echo = 32:40, eval = F}
 ```
-<!-- TO PUBLISH, TOGGLE NEXT SNIPPET TO eval = T -->
-```{r script, echo = 42, eval = F}
+```{r print1, echo = F, eval = T}
+knitr::kable(slice(miss_recode, 7:9))
 ```
+
 The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use `dplyr::left_join()` to bind the `blimp_output` and `miss_recode` data frames, passing `by = "ID"` to align the columns by `ID`. We `relocate()` columns to obtain a desired sequence. 
 
 We then `pivot_longer()` to transform the data object into the tall (multilevel format), in which items and responses are nested within each value of `ID`. In the argument `cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3)` we exclude the four named columns from the pivot to the longer format, thus establishing that in the outer level of nesting, each value of `ID` will be paired with the correct labels contained in the three `recode_cols` columns. In the resulting long data object, the input column names are contained in a single column given by the argument `names_to = c("item")`, and the paired responses are contained the `value` column. As a result, we now need only recode values in a single column. In the wide format, we would have needed to recode multiple columns, which would require more elaborate code.
-```{r script, echo = 44:48, eval = F}
+```{r script, echo = 41:46, eval = F}
 ```
 We now use `tidyr::extract()` to create new columns that will hold markers delineating the ranges of rows in the `value` column that need to be recoded. Here we examine only the code segment that operates on `recode_cols1`; an analogous procedure is used on `recode_cols2` and `recode_cols3`.
 
 `extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([:alnum:]{4}):(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to `start1` (`([:alnum:]{4})`) and `end1` (`(.*)`). Characters outside the parentheses (e.g., `:`) are dropped. The final argument `remove = F` indicates that the source column will be retained in the output.
 
 This `extract()` sequence is repeated for `recode_cols2` and `recode_cols3`, creating `start` and `end` columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.
-```{r script, echo = 49:54, eval = F}
+```{r script, echo = 47:52, eval = F}
 ```
-In the next sequence, we use `runner::fill_run()` to label rows (items) for recoding. Because we need `fill_run()` to operate only within values of `ID` (that is, within single cases), we call `dplyr::group_by()` to group the data object by `ID`.
+In the next sequence, we use the `runner` package to label rows (items) for recoding. Because we need `fill_run()` to operate only within values of `ID` (that is, within single cases), we call `dplyr::group_by()` to group the data object by `ID`.
 
-We then invoke `mutate()` to create a new column `recode_run` to hold the start and end points for the item ranges to be recoded. We assign values using `case_when`, marking the start item for first range to be recoded with the expression `start1 == item ~ "recode1"`. When evaluated, this expression finds the row that represents the item named in `start1`; that is, the _first_ item in the first item range to be recoded. In this row, it assigns the value `recode1` to the column `recode_run`. With the expression `end1 == item ~ "recode1"`, `case_when()` assigns `recode1` to mark the row containing the _last_ item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (`ID`) are now marked.
-```{r script, echo = 67:78, eval = F}
+We then invoke `mutate()` to create a new column `recode_run` to hold the start and end points for the item ranges to be recoded. We assign values using `case_when()`, marking the start item for first range to be recoded with the expression `start1 == item ~ "recode1"`. When evaluated, this expression finds the row that represents the item named in `start1`; that is, the _first_ item in the first item range to be recoded. In this row, it assigns the value `recode1` to the column `recode_run`. With the expression `end1 == item ~ "recode1"`, `case_when()` assigns `recode1` to mark the row containing the _last_ item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (`ID`) are now marked, within the `recode_run` column.
+```{r script, echo = 65:76, eval = F}
+```
+We can use `runner::fill_run()` to fill in values between the labeled start and end rows. We use `across()` to address only the `recode_run` column, and call `fill_run()` with the formula shorthand `~`. We provide the `.` shorthand to specify `recode_run`, and pass the argument `only_within = T` to limit the filling of values to only those rows _between_ the start and end points of item ranges to be recoded. As a result, each row in the first item range is now labeled with `recode1`, and similarly for the second and third item ranges.
+```{r script, echo = 77:78, eval = F}
+```
+We use `case_when()` to recode the column `value`, recoding only the labeled rows to `NA`. The expression `recode_run %in% c("recode1", "recode2", "recode3") ~ NA_real_` specifies that whenever the value of `recode_run` is one of three elements `%in%` a character vector, the value of `value` will be changed to `NA`. Passing the "else" argument `T ~ value` leaves all other rows within `value` unchanged.
+```{r script, echo = 79:84, eval = F}
+```
+Finishing up, we use `select()` to drop all columns except those needed to recreate the original wide format, in which we had only the ID and item columns. We `pivot_wider()` the data object back to wide format, drawing the item column names from the `item` column, and the item row values from the `value` column.
+```{r script, echo = 85:89, eval = F}
+```
+The following table illustrates how the recoding process plays out for case `230010`, which is missing data both on subtests that the examinee attempted (Type 1), and on all items of subtests _NOT_ attempted (Type 2). Specifically, `230010` is Type 2 missing on the item range `i051:i084`.
+
+The table shows items `i051` to `i060` for case `230010`, at three stages of the process. In the original input data `input_orig`, the item range is all `NA`, because the examinee did not attempt any items in this range. In the unrecoded `blimp_output`, the item range is all `1` because BLIMP imputed the missing data. In the recoded `blimp_recode`, the item range has been recoded back to its correct Type 2 state of `NA`. This recoding operation leaves the imputations in place for any Type 1 missing data.
+```{r print2, echo = F, eval = T}
+temp_input <- input_orig %>% 
+  filter(ID == 230010) %>% 
+  select(ID, i051:i060) %>% 
+  mutate(data = "input_orig") %>% 
+  relocate(data, .after = ID)
+
+temp_blimp_out <- blimp_output %>% 
+  filter(ID == 230010) %>% 
+  select(ID, i051:i060) %>% 
+  mutate(data = "blimp_output") %>% 
+  relocate(data, .after = ID)
+
+temp_blimp_recode <- blimp_recode %>% 
+  filter(ID == 230010) %>% 
+  select(ID, i051:i060) %>% 
+  mutate(data = "blimp_recode") %>% 
+  relocate(data, .after = ID)
+
+knitr::kable(bind_rows(temp_input,
+                  temp_blimp_out,
+                  temp_blimp_recode))
 ```
