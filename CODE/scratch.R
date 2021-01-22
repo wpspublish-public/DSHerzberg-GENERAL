@@ -1,22 +1,36 @@
-temp_input <- input_orig %>% 
-  filter(ID == 230010) %>% 
-  select(ID, i051:i060) %>% 
-  mutate(data = "input_orig") %>% 
-  relocate(data, .after = ID)
+suppressMessages(library(here))
+suppressMessages(suppressWarnings(library(tidyverse)))
 
-temp_blimp_out <- blimp_output %>% 
-  filter(ID == 230010) %>% 
-  select(ID, i051:i060) %>% 
-  mutate(data = "blimp_output") %>% 
-  relocate(data, .after = ID)
+temp1 <-
+  suppressMessages(read_csv(here(
+    "INPUT-FILES/summary-evaluation-data-1-col.csv"
+  )))
 
-temp_blimp_recode <- blimp_recode %>% 
-  filter(ID == 230010) %>% 
-  select(ID, i051:i060) %>% 
-  mutate(data = "blimp_recode") %>% 
-  relocate(data, .after = ID)
+temp1_name <- str_replace_all(names(temp1), " ", "_") %>% 
+  str_replace_all("–_", "")
 
-comp <- bind_rows(temp_input,
-                  temp_blimp_out,
-                  temp_blimp_recode)
-knitr::kable(comp)
+temp2 <- temp1 %>%
+  separate(names(temp1),
+           c("A", "q1", "B", "q2", "C", "q3", "D", "q4"),
+           "([:,])",
+           remove = FALSE)
+
+  temp3 <- temp2 %>% 
+  select(q1, q2, q3, q4) %>% 
+  mutate(across(
+    everything(),
+    ~ str_replace(., " ", "") %>% 
+      as.integer()
+  ))
+
+vec1 <- temp2 %>% 
+  select(A, B, C, D) %>% 
+  filter(row_number() == 1) %>% 
+  as.character() %>% 
+  str_replace_all(" ", "_")
+
+vec2 <- str_c(temp1_name, vec1, sep = "_") %>% 
+  str_replace(., "__", "_")
+
+temp4 <- temp3 %>% 
+  set_names(vec2)
