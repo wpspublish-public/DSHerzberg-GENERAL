@@ -1,6 +1,25 @@
 suppressMessages(library(here))
 suppressMessages(suppressWarnings(library(tidyverse)))
 
+# read input data
+input <-
+  suppressMessages(read_csv(here(
+    "INPUT-FILES/summary-evaluation-data.csv"
+  )))
+
+names_input <- names(input)
+
+# process date-time data
+date_col <- input %>% 
+  select(Completed) %>% 
+  transmute(completed = lubridate::mdy_hm(Completed))
+
+# process super-sub cols
+super_sub_cols <- input %>% 
+  select("Quality of Instruction – Instructor Ratings":"Learning Objectives")
+
+# SINGLE COLUMN SCRIPT ----------------------------------------------------
+
 # read single col input data
 input <-
   suppressMessages(read_csv(here(
@@ -49,7 +68,7 @@ sub_q_names <- temp1 %>%
 col_names <- str_c(q_name, sub_q_names, sep = "_") %>% 
   str_replace(., "__", "_")
 
-# we name the cols of numerical responses with the vec of nanmes we just created.
+# we name the cols of numerical responses with the vec of names we just created.
 output <- r_cols %>% 
   set_names(col_names)
 
