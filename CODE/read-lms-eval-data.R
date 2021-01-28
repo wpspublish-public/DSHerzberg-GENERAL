@@ -16,7 +16,23 @@ date_col <- input %>%
 
 # process super-sub cols
 super_sub_cols <- input %>% 
-  select("Quality of Instruction – Instructor Ratings":"Learning Objectives")
+  select("General Live Webinar Experience":"Learning Objectives")
+
+q_name <- str_c(str_replace_all(names(super_sub_cols), " ", "_"), ":")
+
+list1 <- map(
+  names(super_sub_cols),
+  ~ super_sub_cols %>%
+    select(!!sym(.x)) %>%
+    separate(
+      !!sym(.x),
+      c("q1", "r1", "q2", "r2", "q3", "r3", "q4", "r4", "q5", "r5"),
+      # document this regex, especially the "look around" operation
+      "(:|(?<=[:digit:]),)",
+      remove = FALSE
+    )
+)
+
 
 # SINGLE COLUMN SCRIPT ----------------------------------------------------
 
