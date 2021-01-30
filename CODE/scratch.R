@@ -1,2 +1,7 @@
-temp2 <- str_c(q_name[1], list_sub_q_names[[1]], sep = "_") %>% 
-  str_replace(., "__", "_")
+temp1 <- input[as.name("General Live Webinar Experience"):as.name("Usefulness of Content")]
+
+
+input[c(
+  match("General Live Webinar Experience", names(input)):match("Usefulness of Content", names(input))
+)] <- named_super_sub_r_cols
+
