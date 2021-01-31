@@ -9,9 +9,27 @@ input <-
 
 names_input <- names(input)
 
+# This configuration of tokens assumes that the cols with super and subordinate
+# questions are in a single continuous block. These tokens need to be quoted and
+# include white space.
+token_super_sub_first_col <- "General Live Webinar Experience"
+token_super_sub_last_col <- "Usefulness of Content"
+token_lhs_intact_cols <- c("First Name", "Last Name", "Email", "Credits")
+token_rhs_intact_first_col <- str_c("How will you use the knowledge ", 
+                                    "gained from this course within your practice?")
+token_rhs_intact_last_col <- str_c("I certify that I am the person who ", 
+                                   "attended the live webinar and completed this evaluation.")
+# the next token names the destination cols for output from splitting the
+# super-sub question cols. The cols are pairs: q for question, r for respsonse.
+# This token should be set up with as many pairs as are in the quesiton with the
+# MOST sub-questions. The script handles super qs with fewer sub qs automagically.
+token_split_destination_cols <- c("q1", "r1", "q2", "r2", "q3", "r3", "q4", "r4", "q5", "r5")
+# document this regex token thoroughly
+token_split_regex <- "(:|(?<=[:digit:]),)"
+
 # segregate super-sub cols
 df_super_sub_cols <- input %>% 
-  select("General Live Webinar Experience":"Usefulness of Content")
+  select(all_of(token_super_sub_first_col):all_of(token_super_sub_last_col))
 
 # segregate and process date-time col
 date_col <- input %>% 
@@ -19,14 +37,12 @@ date_col <- input %>%
   transmute(completed = lubridate::mdy_hm(Completed))
 
 # segregate LHS and RHS side cols to leave intact for final output
-
-lhs_cols <- input %>% 
-  select("First Name", "Last Name", "Email", "Credits") %>% 
+lhs_cols1 <- input %>% 
+  select(all_of(token_lhs_intact_cols)) %>% 
   mutate(across(where(is.logical), as.character))
 
 rhs_cols <- input %>% 
-  select("How will you use the knowledge gained from this course within your practice?": 
-         "I certify that I am the person who attended the live webinar and completed this evaluation.")
+  select(all_of(token_rhs_intact_first_col):all_of(token_rhs_intact_last_col))
 
 # extract superordinate question name for output by replacing white space with
 # underscore, adding : as a separator for the subordinate question name, col
@@ -35,25 +51,24 @@ q_name <- str_c(str_replace_all(names(df_super_sub_cols), " ", "_"), ":")
 
 # use `tidyr::separate` to split a single column containing a long string into
 # several cols. 1st arg names col to be split; 2nd arg is vec of column names to
-# hold the 8 parts of the split string; 3rd arg is regex specifying the two
+# hold the parts of the split string; 3rd arg is regex specifying the
 # characters to split on; 4th arg drops input col in output df. In this input
-# file, there are six super-sub questions to process, so we map() over the names
-# of those six questions. In addition, those six questions have differing
-# numbers of subquestions. The way to handle this is to create enough ouput cols
+# file, there are X super-sub questions to process, so we map() over the names
+# of those X questions. In addition, those X questions have differing
+# numbers of subquestions. The way to handle this is to create enough output cols
 # (e.g., q1-r1  pairs) to handle question with the MOST subquestions. The ones
 # with fewer subquestions will have all NA in those extra columns, and the empty
 # cols can be dropped with janitor::remove_empty(). Here map returns a list of
-# six dfs, each containing the separated subquestions and responses
+# X dfs, each containing the separated subquestions and responses
 # corresponding to one super-ordinate question.
-list_super_sub_cols <- map(
+list_super_sub_cols1 <- map(
   names(df_super_sub_cols),
   ~ df_super_sub_cols %>%
     select(!!sym(.x)) %>%
     separate(
       !!sym(.x),
-      c("q1", "r1", "q2", "r2", "q3", "r3", "q4", "r4", "q5", "r5"),
-      # document this regex, especially the "look around" operation
-      "(:|(?<=[:digit:]),)",
+      all_of(token_split_destination_cols),
+      token_split_regex,
       remove = TRUE
     ) %>% 
     janitor::remove_empty("cols")
