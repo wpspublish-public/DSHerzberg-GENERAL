@@ -1,0 +1,91 @@
+---
+title: "Data Management Best Practices"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### HOW TO USE THIS DOCUMENT:
+This R Notebook (.rmd) contains chunks of runnable code along with detailed analysis and documentation of the code and workflow. To use this Notebook, render (knit) it as an HTML document into the RStudio Viewer Pane:
+
+1. In RStudio Preferences, R Markdown section, set the `Show output preview in:` option to `Viewer Pane`.
+2. Knit the notebook using `File -> Knit Document`. This will produce a readable HTML version of this document in the Viewer Pane. 
+3. Close this Notebook (once you have the HTML in the Viewer, you no longer need the Notebook).
+4. Open a new R script in the Source Pane. This will serve as your working script, into which you can copy-and-paste code from the HTML.
+
+The HTML narrative is organized into sections reflecting discrete topics and operations in the R workflow. Each section has two parts:
+
+1. `EXECUTABLE CODE`: this code can be copy-and-pasted into your working R script. Before running, make sure that all file paths relating to input and output files are specified correctly for your local environment. __Note that all code in this Notebook was written for the Mac OS, so if you are working in Windows, you may need to substitute `\` for `/` in file paths.__
+2. `COMMENTED SNIPPETS`: these snippets provide the analysis and documentation of the code and workflow. The R code in these snippets is redundant with that in the `EXECUTABLE CODE` section. Here, it serves merely to enhance the code documentation, and is not meant to be run.
+
+<br>
+
+#### CREATE AN RStudio PROJECT WITH STANDARD FOLDER STRUCTURE:
+To keep your work organized, set up a project in RStudio, by clicking File -> New Project. You'll be asked to specify a working directory associated with the project. Create the following folders within the working directory:
+
+* `CODE`
+* `INPUT-FILES`
+* `OUTPUT-FILES`
+    + `DESCRIPTIVE-TABLES`
+    + `FINAL-RAW-TO-SS-LOOKUP-TABLES`
+
+As mentioned above, you need to make sure file paths in your script are specified correctly, in order to read input files and/or write output files.
+
+<br>
+
+#### Robust templates; tokenization of project-specific elements
+
+###### EXECUTABLE CODE
+```{r token, eval = FALSE}
+suppressMessages(library(here))
+suppressMessages(suppressWarnings(library(tidyverse)))
+
+urlRemote_path  <- "https://raw.githubusercontent.com/"
+github_path <- "DSHerzberg/RATING-SCALE-ANALYSIS/master/INPUT-FILES/"
+input_name <- "data-RS-sim-child-parent.csv"
+
+item_prefix <- "cp"
+scale_prefix <- "CP"
+scale_suffix <- c("S1", "S2", "S3", "S4", "S5", "TOT")
+age_range_name <- "child"
+form_name <- "parent"
+all_raw_range <- 10:200
+TOT_raw_lower_bound <- 50
+subscale_raw_upper_bound <- 40
+t_score_lower_bound <- 40
+t_score_upper_bound <- 80
+
+assign(str_c("data", age_range_name, form_name, sep = "_"),
+       suppressMessages(read_csv(url(
+         str_c(urlRemote_path, github_path, input_name)
+       ))))
+```
+
+<br>
+
+###### COMMENTED SNIPPETS
+Any R script should begin by loading packages for file path specification (`here`), and data wrangling (`tidyverse`).
+```{r token, echo = 1:2, eval = F}
+```
+Ideally, code templates are _robust_, meaning that they can be adapted to different projects with minimal copying-and-pasting of text. Robust templates are characterized by their liberal use of _tokens_, which are names for _project-specific_ data and text elements that are used repeatedly throughout the template.
+
+These tokenized elements include names of variables, files, test forms, raters, etc., as well as labels for age- and score ranges, score item counts, score numerical bounds, and so forth. By definition, these elements differ between, say, an autism rating-scale project and an ADHD rating-scale project. 
+
+In contrast, the _project-general_ aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script, therefore, consists only of project-general code.
+
+In R, we initialize tokens as _vectors_. In the next code snippet, for example, `item_prefix <- "cp"` defines a vector that holds a prefix used in the names of all columns containing item responses. The code block also includes tokens for reading a certain input file from a certain remote URL, among other project-specific elements.
+```{r token, echo = 3:17, eval = F}
+```
+Many analytic procedures require the specification of an entire set of project-specific elements, such as the entire set of item names, or form names. We can use string functions to combine tokens and explicit text as needed, both to create the names of the elements within the set, and to create the accompanying token names. For instance, we can assemble a vector containing all of the item names by concatenating the token `item_prefix` with a numerical series (e.g., `c("001", "002", "003")`). 
+
+Often, we want to name objects by combining previously defined tokens with explicit strings. To use a concatenated string as the name of an object in R, we cannot rely on the conventional assignment operator `<-`. Instead, we use `base::assign()` to initialize these concatenated names. `assign()` takes two arguments, the desired token name (concatenated with `stringr::str_c()`), and the code snippet that defines the object(s) to be named.
+
+In the example below, we use `assign()` to name an input data file for further analysis. The first argument, `str_c("data", age_range_name, form_name, sep = "_")`, returns the name `data_child_parent`, combining the file type description (`"data"`, provided as an explicit string) with the age-range (`age_range_name`) and rater (`form_name`) tokens. The combination of these latter two tokens identifies the form whose data is contained in the input file.
+
+The second argument to `assign()` specifies the data object to be named with the concatenated string. Here, an object is created by reading the input data file with `readr::read_csv()`. Note how the input file path is a concatenation of three previously defined tokens `str_c(urlRemote_path, github_path, input_name)`.
+```{r token, echo = 19:22, eval = F}
+```
+
+
