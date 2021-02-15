@@ -194,7 +194,7 @@ summary {
 
 <div id="how-to-use-this-document" class="section level4">
 <h4>HOW TO USE THIS DOCUMENT:</h4>
-<p>This R Notebook (.rmd) contains chunks of runnable code along with detailed analysis and documentation of the code and workflow. To use this Notebook, render (knit) it as an HTML document into the RStudio Viewer Pane:</p>
+<p>This R Notebook (.rmd) contains blocks of executable code along with detailed analysis and documentation of the code and workflow. To use this Notebook, render (knit) it as an HTML document into the RStudio Viewer Pane:</p>
 <ol style="list-style-type: decimal">
 <li>In RStudio Preferences, R Markdown section, set the <code>Show output preview in:</code> option to <code>Viewer Pane</code>.</li>
 <li>Knit the notebook using <code>File -&gt; Knit Document</code>. This will produce a readable HTML version of this document in the Viewer Pane.</li>
@@ -214,23 +214,30 @@ summary {
 <ul>
 <li><code>CODE</code></li>
 <li><code>INPUT-FILES</code></li>
-<li><code>OUTPUT-FILES</code>
-<ul>
-<li><code>DESCRIPTIVE-TABLES</code></li>
-<li><code>FINAL-RAW-TO-SS-LOOKUP-TABLES</code></li>
-</ul></li>
+<li><code>OUTPUT-FILES</code></li>
 </ul>
 <p>As mentioned above, you need to make sure file paths in your script are specified correctly, in order to read input files and/or write output files.</p>
 <p><br></p>
 </div>
-<div id="robust-templates-tokenization-of-project-specific-elements" class="section level4">
-<h4>Robust templates; tokenization of project-specific elements</h4>
+<div id="core-packages-here-tidyverse" class="section level4">
+<h4>Core packages: <code>here</code>, <code>tidyverse</code></h4>
 <div id="executable-code" class="section level6">
 <h6>EXECUTABLE CODE</h6>
 <pre class="r"><code>suppressMessages(library(here))
-suppressMessages(suppressWarnings(library(tidyverse)))
-
-urlRemote_path  &lt;- &quot;https://raw.githubusercontent.com/&quot;
+suppressMessages(suppressWarnings(library(tidyverse)))</code></pre>
+<p>Use <code>base::library()</code> to load the core packages for file path specification (<code>here</code>) and data wrangling (<code>tidyverse</code>). We can use <code>base::suppressMessages()</code> and <code>base::suppressWarnings()</code> to quiet chatter in the console.</p>
+<p>Using <code>here()</code> to specify file paths enables a robust workflow. <code>here()</code> anchors the file path to the top-level project folder. Thus, other users of the script need only replicate the standard project folder structure, and read/write functions will run without error.</p>
+<p>The next snippet demonstrates the use of <code>here()</code> to read an input file (with <code>readr::read_csv()</code>, which is included in the <code>tidyverse</code> package):</p>
+<pre><code>input &lt;- read_csv(here(&quot;INPUT-FILES/data.csv&quot;))</code></pre>
+<p>Note that the file path is enclosed in double-quotes, and it <em>does not</em> begin with a leading <code>/</code>.</p>
+<p><br></p>
+</div>
+</div>
+<div id="robust-templates-tokenization-of-project-specific-elements" class="section level4">
+<h4>Robust templates; tokenization of project-specific elements</h4>
+<div id="executable-code-1" class="section level6">
+<h6>EXECUTABLE CODE</h6>
+<pre class="r"><code>urlRemote_path  &lt;- &quot;https://raw.githubusercontent.com/&quot;
 github_path &lt;- &quot;DSHerzberg/RATING-SCALE-ANALYSIS/master/INPUT-FILES/&quot;
 input_name &lt;- &quot;data-RS-sim-child-parent.csv&quot;
 
@@ -253,9 +260,6 @@ assign(str_c(&quot;data&quot;, age_range_name, form_name, sep = &quot;_&quot;),
 </div>
 <div id="commented-snippets" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>Any R script should begin by loading packages for file path specification (<code>here</code>), and data wrangling (<code>tidyverse</code>).</p>
-<pre class="r"><code>suppressMessages(library(here))
-suppressMessages(suppressWarnings(library(tidyverse)))</code></pre>
 <p>Ideally, code templates are <em>robust</em>, meaning that they can be adapted to different projects with minimal copying-and-pasting of text. Robust templates are characterized by their liberal use of <em>tokens</em>, which are names for <em>project-specific</em> data and text elements that are used repeatedly throughout the template.</p>
 <p>These tokenized elements include names of variables, files, test forms, raters, etc., as well as labels for age- and score ranges, score item counts, score numerical bounds, and so forth. By definition, these elements differ between, say, an autism rating-scale project and an ADHD rating-scale project.</p>
 <p>In contrast, the <em>project-general</em> aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script, therefore, consists only of project-general code.</p>
