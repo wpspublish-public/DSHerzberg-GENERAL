@@ -192,41 +192,39 @@ summary {
 </div>
 
 
-<div id="how-to-use-this-document" class="section level4">
-<h4>HOW TO USE THIS DOCUMENT:</h4>
-<p>This R Notebook (.rmd) contains blocks of executable code along with detailed analysis and documentation of the code and workflow. To use this Notebook, render (knit) it as an HTML document into the RStudio Viewer Pane:</p>
+<p><br></p>
+<div id="overview" class="section level4">
+<h4>Overview</h4>
+<p>This document provides the framework for a <em>robust</em> process of data management and analysis using R, RStudio, and the tidyverse. In practice, this robust workflow can be automated and re-purposed across projects, minimizing start-up time, code customization, copying-and-pasting within scripts, and vulnerability to operator error. The process is supported by code templates, detailed documentation, and a set of work habits and guidelines for how data files are managed and shared among multiple users.</p>
+<p>The document contains blocks of executable code along with detailed explanation. The narrative is organized into sections reflecting discrete topics and operations in the workflow. Each section has two parts:</p>
 <ol style="list-style-type: decimal">
-<li>In RStudio Preferences, R Markdown section, set the <code>Show output preview in:</code> option to <code>Viewer Pane</code>.</li>
-<li>Knit the notebook using <code>File -&gt; Knit Document</code>. This will produce a readable HTML version of this document in the Viewer Pane.</li>
-<li>Close this Notebook (once you have the HTML in the Viewer, you no longer need the Notebook).</li>
-<li>Open a new R script in the Source Pane. This will serve as your working script, into which you can copy-and-paste code from the HTML.</li>
-</ol>
-<p>The HTML narrative is organized into sections reflecting discrete topics and operations in the R workflow. Each section has two parts:</p>
-<ol style="list-style-type: decimal">
-<li><code>EXECUTABLE CODE</code>: this code can be copy-and-pasted into your working R script. Before running, make sure that all file paths relating to input and output files are specified correctly for your local environment. <strong>Note that all code in this Notebook was written for the Mac OS, so if you are working in Windows, you may need to substitute <code>\</code> for <code>/</code> in file paths.</strong></li>
+<li><code>EXECUTABLE CODE</code>: this code can be copy-and-pasted into your working R script. Before running, make sure that all file paths are specified correctly for your local environment. <strong>Note that all code in this document was written for the Mac OS, so if you are working in Windows, you may need to substitute <code>\</code> for <code>/</code> in file paths.</strong></li>
 <li><code>COMMENTED SNIPPETS</code>: these snippets provide the analysis and documentation of the code and workflow. The R code in these snippets is redundant with that in the <code>EXECUTABLE CODE</code> section. Here, it serves merely to enhance the code documentation, and is not meant to be run.</li>
 </ol>
+<p>This HTML document is sourced from (and can be updated with) an accompanying R Notebook.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
 <p><br></p>
 </div>
-<div id="create-an-rstudio-project-with-standard-folder-structure" class="section level4">
-<h4>CREATE AN RStudio PROJECT WITH STANDARD FOLDER STRUCTURE:</h4>
-<p>To keep your work organized, set up a project in RStudio, by clicking File -&gt; New Project. You’ll be asked to specify a working directory associated with the project. Create the following folders within the working directory:</p>
+<div id="create-an-rstudio-project-and-folder-structure" class="section level4">
+<h4>Create an RStudio project and folder structure</h4>
+<p>To implement an optimal project-oriented workflow, set up a project in RStudio, by clicking File -&gt; New Project. You’ll be asked to specify a working directory associated with the project. Create the following folders within the working directory:</p>
 <ul>
-<li><code>CODE</code></li>
-<li><code>INPUT-FILES</code></li>
-<li><code>OUTPUT-FILES</code></li>
+<li><code>CODE</code>: R scripts (<code>*.R</code>)</li>
+<li><code>DOCUMENTATION</code>: explanatory documents (<code>*.rmd</code>, <code>*.html</code>)</li>
+<li><code>INPUT-FILES</code>: data to be processed by R scripts (<code>*.csv</code>)</li>
+<li><code>OUTPUT-FILES</code>: saved output from R scripts (<code>*.csv</code>, <code>*.jpg</code>, <code>*.png</code>)</li>
 </ul>
-<p>As mentioned above, you need to make sure file paths in your script are specified correctly, in order to read input files and/or write output files.</p>
+<p>Within these folders, sub-folders will vary by project. There may also be other project-specific folders at the top level.</p>
 <p><br></p>
 </div>
-<div id="core-packages-here-tidyverse" class="section level4">
-<h4>Core packages: <code>here</code>, <code>tidyverse</code></h4>
+<div id="install-and-load-core-packages" class="section level4">
+<h4>Install and load core packages</h4>
 <div id="executable-code" class="section level6">
 <h6>EXECUTABLE CODE</h6>
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(suppressWarnings(library(tidyverse)))</code></pre>
-<p>Use <code>base::library()</code> to load the core packages for file path specification (<code>here</code>) and data wrangling (<code>tidyverse</code>). We can use <code>base::suppressMessages()</code> and <code>base::suppressWarnings()</code> to quiet chatter in the console.</p>
-<p>Using <code>here()</code> to specify file paths enables a robust workflow. <code>here()</code> anchors the file path to the top-level project folder. Thus, other users of the script need only replicate the standard project folder structure, and read/write functions will run without error.</p>
+<p>Use <code>base::library()</code> to load the core packages for file path specification (<code>here</code>) and data wrangling (<code>tidyverse</code>). Use <code>base::suppressMessages()</code> and <code>base::suppressWarnings()</code> as needed to quiet chatter in the console.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a></p>
+<p><code>tidyverse</code> is a meta-package that contains the suite of libraries and functions required for implementing the robust data management processes described in this document.</p>
+<p><code>here::here()</code> anchors the file path to the top-level project folder. Thus, other users of the script need only replicate the standard project folder structure, and read/write functions will run without error.</p>
 <p>The next snippet demonstrates the use of <code>here()</code> to read an input file (with <code>readr::read_csv()</code>, which is included in the <code>tidyverse</code> package):</p>
 <pre><code>input &lt;- read_csv(here(&quot;INPUT-FILES/data.csv&quot;))</code></pre>
 <p>Note that the file path is enclosed in double-quotes, and it <em>does not</em> begin with a leading <code>/</code>.</p>
@@ -260,7 +258,7 @@ assign(str_c(&quot;data&quot;, age_range_name, form_name, sep = &quot;_&quot;),
 </div>
 <div id="commented-snippets" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>Ideally, code templates are <em>robust</em>, meaning that they can be adapted to different projects with minimal copying-and-pasting of text. Robust templates are characterized by their liberal use of <em>tokens</em>, which are names for <em>project-specific</em> data and text elements that are used repeatedly throughout the template.</p>
+<p><em>Robust</em> code templates can be adapted to different projects with minimal copying-and-pasting of text. Robust templates are characterized by their liberal use of <em>tokens</em>, which are names for <em>project-specific</em> data and text elements that are used repeatedly throughout the template.</p>
 <p>These tokenized elements include names of variables, files, test forms, raters, etc., as well as labels for age- and score ranges, score item counts, score numerical bounds, and so forth. By definition, these elements differ between, say, an autism rating-scale project and an ADHD rating-scale project.</p>
 <p>In contrast, the <em>project-general</em> aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script, therefore, consists only of project-general code.</p>
 <p>In R, we initialize tokens as <em>vectors</em>. In the next code snippet, for example, <code>item_prefix &lt;- &quot;cp&quot;</code> defines a vector that holds a prefix used in the names of all columns containing item responses. The code block also includes tokens for reading a certain input file from a certain remote URL, among other project-specific elements.</p>
@@ -287,6 +285,20 @@ t_score_upper_bound &lt;- 80</code></pre>
          str_c(urlRemote_path, github_path, input_name)
        ))))</code></pre>
 </div>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>The HTML document is generated by R Notebook (.rmd) markdown document. To generate an updated version of the HTML document, render (knit) the Notebook into the RStudio Viewer Pane:</p>
+<ul>
+<li>In RStudio Preferences, R Markdown section, set the <code>Show output preview in:</code> option to <code>Viewer Pane</code>.</li>
+<li>Knit the notebook using <code>File -&gt; Knit Document</code>. This will produce a readable HTML version of this document in the Viewer Pane.</li>
+<li>Close this Notebook (once you have the HTML in the Viewer, you no longer need the Notebook).</li>
+<li>Open a new R script in the Source Pane. This will serve as your working script, into which you can copy-and-paste code from the HTML.</li>
+</ul>
+<a href="#fnref1" class="footnote-back">↩︎</a></li>
+<li id="fn2"><p>The double-colon <code>::</code> operator links a function to its parent package, as in <code>package::function()</code>. By using this elaborated specification in code, we can run an installed function without loading its entire parent library. Regardless, a function name is always followed by a double-parenthesis wrapper <code>()</code>.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+</ol>
 </div>
 
 
