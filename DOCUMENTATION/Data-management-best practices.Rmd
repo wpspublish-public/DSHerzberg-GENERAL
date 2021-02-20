@@ -125,8 +125,7 @@ The robust data workflow requires standardization of the names of .csv and .xlsx
 * Within R code, references to external file paths and saved files are always enclosed in double quotes `""`
 * File names SHOULD NOT contain:
     + blank spaces (replace with hyphens `-`)
-    + any other punctuation marks (besides hyphens)
-    + special characters (e.g., `&`, `(`, `)`, etc.)
+    + any other non-alphanumeri characters (besides hyphens)
     + upper-case letters
 * Names of persons should be expressed as lower-case three-letter acronyms
     
@@ -134,11 +133,22 @@ Thus, we write `"jfd-project-data.csv"`, and NOT `John Doe's Project Data.csv`.
 
 When reading files into R, we may need to take into account the structure set up to facilitate data entry. For example, if three different operators are entering raw data from printed forms into MS Excel, they may be saving their work in three different locations, on their local machines, the organization's network, and/or the cloud.
 
-Within the different folders of the operators, there may be several different .xlsx files to differentiate (for example) data from clinical cases, typically developing children, a test-retest cohort, and so on. And, within an .xlsx file, there may be multiple worksheets to organize the data from each case. For example, there may be separate sheets for demographic information, responses from the test being developed, responses from concurrently administered measures, and so on.
+Within the different folders of the operators, there may be several different .xlsx files to differentiate (for example) data from clinical cases, typically developing children, a test-retest cohort, and so on. And, within an .xlsx file, there may be multiple worksheets (tabs) to organize the data from each case. For example, there may be separate sheets for demographic information, responses from the test being developed, responses from concurrently administered measures, and so on.
 
-What's important to note is that each of these different ways of dividing up the data (which are implemented to facilite data entry) represent information that we want to preserve and make available for analysis. To use a less-obvious example, we might want to compare the data entered by different operators. To do this, we would need to create a variable (column) where each case would receive a code indicating the operator who entered that case. But the information required to assign values in that column many not be represented explicitly in the .xlsx sheets themselves.
+What's important to note is that each of these different ways of dividing up the data (which are implemented to facilite data entry) represent information that we typically want to preserve and make available for analysis. To use a less-obvious example, we might want to compare the data entered by different operators. To do this, we would need to create a variable (column) where each case would receive a code indicating the operator who entered that case. But the information required to assign values in that column many not be represented explicitly in the .xlsx sheets themselves. In fact, it may be represented in a folder structure, which is not a format that we can analyze with a statistical package.
 
-Here is where the file name becomes useful.
+Here is where the file naming, in combination with tokenization, becomes useful. We can represent two levels of differentiation in the file name. For example, let's suppose we have two operators, John Frederick Doe, and Jane Maria Roe; and two data sources, typical and clinical. We can tokenize these variables as follows:
+
+```
+operator <- c("jfd", "jmr")
+data_source <- c("clinical", "typical")
+```
+
+And we would name data files accordingly:
+
+```
+"strat1-strat2-project_name-data.csv"
+```
 
 <br>
 

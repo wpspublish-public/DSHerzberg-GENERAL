@@ -301,15 +301,17 @@ t_score_upper_bound &lt;- 80</code></pre>
 <li>Within R code, references to external file paths and saved files are always enclosed in double quotes <code>&quot;&quot;</code></li>
 <li>File names SHOULD NOT contain:
 <ul>
-<li>blank spaces: replace spaces with hyphens <code>-</code></li>
-<li>any other punctuation marks (besides hypens)</li>
-<li>special characters (e.g., <code>&amp;</code>, <code>(</code>, <code>)</code>, etc.)</li>
+<li>blank spaces (replace with hyphens <code>-</code>)</li>
+<li>any other non-alphanumeri characters (besides hyphens)</li>
 <li>upper-case letters</li>
 </ul></li>
 <li>Names of persons should be expressed as lower-case three-letter acronyms</li>
 </ul>
 <p>Thus, we write <code>&quot;jfd-project-data.csv&quot;</code>, and NOT <code>John Doe&#39;s Project Data.csv</code>.</p>
 <p>When reading files into R, we may need to take into account the structure set up to facilitate data entry. For example, if three different operators are entering raw data from printed forms into MS Excel, they may be saving their work in three different locations, on their local machines, the organization’s network, and/or the cloud.</p>
+<p>Within the different folders of the operators, there may be several different .xlsx files to differentiate (for example) data from clinical cases, typically developing children, a test-retest cohort, and so on. And, within an .xlsx file, there may be multiple worksheets (tabs) to organize the data from each case. For example, there may be separate sheets for demographic information, responses from the test being developed, responses from concurrently administered measures, and so on.</p>
+<p>What’s important to note is that each of these different ways of dividing up the data (which are implemented to facilite data entry) represent information that we typically want to preserve and make available for analysis. To use a less-obvious example, we might want to compare the data entered by different operators. To do this, we would need to create a variable (column) where each case would receive a code indicating the operator who entered that case. But the information required to assign values in that column many not be represented explicitly in the .xlsx sheets themselves. In fact, it may be represented in a folder structure, which is not a format that we can analyze with a statistical package.</p>
+<p>Here is where the file name becomes useful.</p>
 <p><br></p>
 </div>
 <div id="input-requirements-varialbe-naming-conventions-work-in-progress" class="section level4">
