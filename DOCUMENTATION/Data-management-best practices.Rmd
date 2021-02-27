@@ -22,7 +22,7 @@ In practice, this robust workflow can be automated and re-purposed across projec
 
 The document contains blocks of executable code, alongside extensive commentary. The narrative is organized into sections reflecting discrete topics and operations in the workflow. Each section has two parts:
 
-1. `EXECUTABLE CODE`: this code can be copy-and-pasted into a working R script. Before running, make sure that all file paths are specified correctly for your local environment. __Note that all code in this document was written for the Mac OS, so if you are working in Windows, you may need to substitute `\` for `/` in file paths.__
+1. `EXECUTABLE CODE`: this code can be copy-and-pasted into a working R script. Before running, make sure that all file paths are specified correctly for the local environment. __Note that all code in this document was written for the Mac OS; Windows typically requires the substitution of `\` for `/` in file paths.__
 2. `COMMENTED SNIPPETS`: these snippets provide analysis and explanation of the code and workflow. The R code in these snippets is redundant with that in the `EXECUTABLE CODE` section. Here, it serves merely to enhance the documentation, and is not meant to be run.
 
 This HTML document is sourced from (and can be updated with) an accompanying R Notebook.[^longnote]
@@ -97,20 +97,33 @@ assign(str_c("data", age_range_name, form_name, sep = "_"),
 <br>
 
 ###### COMMENTED SNIPPETS
-Robust code templates can be adapted to different projects with minimal sustitution and copying-and-pasting of text. Robust templates are characterized by their liberal use of _tokens_, which are names for _project-specific_ data and text elements that are used repeatedly throughout the template.
 
-These tokenized elements include names of variables, files, test forms, raters, etc., as well as labels for age- and score ranges, score item counts and numerical bounds, and so forth. By definition, these elements differ between, say, an autism rating-scale project and an ADHD rating-scale project. 
+##### Named objects in the R workspace
 
-In contrast, the _project-general_ aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script, therefore, consists only of project-general code.
+In R, the _process_ component of the data workflow is one of manipulating named data objects in the programming environments.^[Although many environments may exist within the R workspace, in general our scripts operate in the most general and inclusive of these: the _global environment_]
 
-In R, we initialize tokens as _vectors_, using the the assignment operator `<-`. In the next code snippet, for example, `item_prefix <- "cp"` defines a vector that holds a prefix used in the names of all columns containing item responses. The snippet begins with three tokens that, when used together, specify the file path to a certain input file located on a certain remote URL.
+Robust code templates can be adapted to different projects with minimal sustitution and copying-and-pasting of text. Robust templates make liberal use of _tokens_, which are names for _project-specific_ data and text elements that are used repeatedly throughout the template.
+
+These tokenized elements include names of variables, files, test forms, raters, etc., as well as labels for age- and score ranges, score item counts, numerical bounds, and so forth. By definition, these elements differ between, say, an autism rating-scale project and an ADHD rating-scale project. 
+
+In contrast, the _project-general_ aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script consists of project-general code that refers to the project-specific tokens.
+
+Tokens are usually represented in R as _vectors_. The most common way of creating a vector is by using the assignment operator `<-`, which creates a data object in the R programming environment and assigns a name to it. For example, the first line of the next snippet is `urlRemote_path  <- "https://raw.githubusercontent.com/"`, which creates the token `urlRemote_path`, a vector whose sole element is the string `"https://raw.githubusercontent.com/"`. When initializing a vector that contains more than one string element, we wrap the elements in the combine function `base::c()`, as in `scale_suffix <- c("S1", "S2", "S3", "S4", "S5", "TOT")`.
+
 ```{r token, echo = 1:15, eval = F}
 ```
-Many analytic procedures require the specification of an entire set of project-specific elements, such as the entire set of item names, or form names. We can use string functions to combine tokens and explicit text as needed, both to create the names of the elements within the set, and to create the accompanying token names. For instance, we can assemble a vector containing all of the item names by concatenating the token `item_prefix` with a numerical series (e.g., `c("001", "002", "003")`). 
+Many analytic procedures require the specification of sets of project-specific elements. For example, we often need to refer to the entire set of item names, or the entire set of form names. To assemble these sets, we need to specify the name of the set, and the names of the elements within the set.
 
-Often, we want to name objects by combining previously defined tokens with explicit strings. To use a concatenated string as the name of an object in R, we cannot rely on the conventional assignment operator `<-`. Instead, we use `base::assign()` to initialize these concatenated names. `assign()` takes two arguments, the desired token name (concatenated with `stringr::str_c()`), and the code snippet that defines the object(s) to be named.
+To create the required names, we can a string functions such as `stringr::str_c()` to combine tokens and explicit text. For example,
+```
+prefix <- "i"
+items <- str_c(prefix, c("001", "002", "003"), sep = "_")
+```
+returns a token (vector) that is a set of item names. The token is named `items`, and the item names are `"i_001" "i_002" "i_003"`.
 
-In the example below, we use `assign()` to name an input data file read in by `readr::read_csv()`. The first argument, `str_c("data", age_range_name, form_name, sep = "_")`, returns the name `data_child_parent`, combining the file type description (`"data"`, provided as an explicit string) with the age-range (`age_range_name`) and rater (`form_name`) tokens. The combination of these latter two tokens identifies the form whose data is contained in the input file. The last argument to `str_c()` is `sep = "_"`, which indicates that in the returned name, the concatenated elements will be separated by an underscore.
+Often, we need to name an object (create a token) not with an explicit string such as `"items`", but with a concatenated string returned by a function such as `str_c()`. In these instances, instead of the assignment operator `<-`, we use `base::assign()` to name the object (token). `assign()` takes two arguments, the desired token name (concatenated with `str_c()`), and the expression that defines the object(s) to be named.
+
+In the example below, we use `assign()` to name an input data file read in by `readr::read_csv()`. The first argument, `str_c("data", age_range_name, form_name, sep = "_")`, returns the name `data_child_parent`, combining the file type description (`"data"`, provided as an explicit string) with the age-range (`age_range_name`) and rater (`form_name`) tokens. The combination of these latter two tokens identifies the form whose data is contained in the input file. The last argument to `str_c()` is `sep = "_"`, which indicates that in the returned name, the concatenated elements will be separated by underscores.
 
 The second argument to `assign()` specifies the data object to be named with the concatenated string. Here, an object is created by reading the input data file with `read_csv()`. Note how the input file path is a concatenation of three previously defined tokens `str_c(urlRemote_path, github_path, input_name)`.
 ```{r token, echo = 16:19, eval = F}
@@ -119,6 +132,13 @@ The second argument to `assign()` specifies the data object to be named with the
 <br>
 
 #### Input requirements: File-naming conventions (work in progress)
+
+File name example:
+
+```
+"tod-data-stand-amk.csv"
+```
+
 
 The robust data workflow requires standardization of the names of .csv and .xlsx files that contain raw data. Some ground rules:
 
@@ -129,15 +149,15 @@ The robust data workflow requires standardization of the names of .csv and .xlsx
     + upper-case letters
 * Names of persons should be expressed as lower-case three-letter acronyms
     
-Thus, we write `"jfd-project-data.csv"`, and NOT `John Doe's Project Data.csv`.
+Thus, we use `"jfd-project-data.csv"`, and NOT `John Doe's Project Data.csv`.
 
-When reading files into R, we may need to take into account the structure set up to facilitate data entry. For example, if three different operators are entering raw data from printed forms into MS Excel, they may be saving their work in three different locations, on their local machines, the organization's network, and/or the cloud.
+When reading files into R, we may need to take into account folder and file structures set up to facilitate manual entry of data from printed test forms. When multiple operators are working on the same project, they may save their work in distinct MS Excel files, on their local machines or in their own folders on the organization's network.
 
-Within the different folders of the operators, there may be several different .xlsx files to differentiate (for example) data from clinical cases, typically developing children, a test-retest cohort, and so on. And, within an .xlsx file, there may be multiple worksheets (tabs) to organize the data from each case. For example, there may be separate sheets for demographic information, responses from the test being developed, responses from concurrently administered measures, and so on.
+Each operator may then create several different .xlsx files to differentiate (for example) data from clinical cases, typically developing children, a test-retest cohort, and so on. And, within an .xlsx file, there may be multiple worksheets (tabs) to subdivide data within cases. For example, there may be separate sheets for demographic information, responses from the test under development, responses from concurrently administered measures, and so on.
 
-What's important to note is that each of these different ways of dividing up the data (which are implemented to facilite data entry) represent information that we typically want to preserve and make available for analysis. To use a less-obvious example, we might want to compare the data entered by different operators. To do this, we would need to create a variable (column) where each case would receive a code indicating the operator who entered that case. But the information required to assign values in that column many not be represented explicitly in the .xlsx sheets themselves. In fact, it may be represented in a folder structure, which is not a format that we can analyze with a statistical package.
+What's important to note is that each of these different ways of dividing up the data (which are implemented to facilite data entry) represent information that we typically want to preserve and make available for analysis. For example, we might want to compare the data entered by different operators. To do this, we would need to create a variable (column) where each case would receive a code indicating the operator who entered that case. But the information required to assign values in that column many not be represented explicitly in the .xlsx sheets themselves. In fact, it may be represented in a folder structure, which is not a format that we can analyze with a statistical package.
 
-Here is where the file naming, in combination with tokenization, becomes useful. We can represent two levels of differentiation in the file name. For example, let's suppose we have two operators, John Frederick Doe, and Jane Maria Roe; and two data sources, typical and clinical. We can tokenize these variables as follows:
+Here is where the file naming, in combination with tokenization, becomes useful. We can represent two levels of differentiation in the file name. Suppose we have two operators, John Frederick Doe, and Jane Maria Roe; and two data sources, typical and clinical. We can tokenize these variables as follows:
 
 ```
 operator <- c("jfd", "jmr")
@@ -152,5 +172,8 @@ And we would name data files accordingly:
 
 <br>
 
-#### Input requirements: Varialbe-naming conventions (work in progress)
+#### Input requirements: Variable-naming conventions (work in progress)
 
+<br>
+
+#### Date-Time formats
