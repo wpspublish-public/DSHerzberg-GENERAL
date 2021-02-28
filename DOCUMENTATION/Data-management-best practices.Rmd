@@ -100,11 +100,13 @@ assign(str_c("data", age_range_name, form_name, sep = "_"),
 
 ##### Named objects in the R workspace
 
-In R, the _process_ component of the data workflow is one of manipulating named data objects in the programming environments.^[Although many environments may exist within the R workspace, in general our scripts operate in the most general and inclusive of these: the _global environment_]
+In the R data workflow, the _process_ component consists of code that manipulates named data objects in the global programming environment.^[Although many environments exist within R workspace, in general our data objects are contained in the most general and inclusive of these: the _global environment_.] By reading the _input_ components of the workflow, we initialize them as named input objects in the global environment. Applying code, we transform input objects into named output objects. We complete the workflow by writing the _output_ components to external files.
 
-Robust code templates can be adapted to different projects with minimal sustitution and copying-and-pasting of text. Robust templates make liberal use of _tokens_, which are names for _project-specific_ data and text elements that are used repeatedly throughout the template.
+Robust code templates make use of a certain class of named objects called _tokens_. A token contains an element of data that is processed one or more times by the code. Examples of tokens include names of variables, files, folders, test forms, raters, etc., as well as labels for age and score ranges, score item counts, numerical bounds, and so forth. 
 
-These tokenized elements include names of variables, files, test forms, raters, etc., as well as labels for age- and score ranges, score item counts, numerical bounds, and so forth. By definition, these elements differ between, say, an autism rating-scale project and an ADHD rating-scale project. 
+What these examples all have in common is that they represent _project-specific_ data elements. Thus, for example, variable names typically differ between, say, an autism rating-scale project and an ADHD rating-scale project.
+
+Robust templates can be adapted to different projects with minimal sustitution and copying-and-pasting of text. 
 
 In contrast, the _project-general_ aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script consists of project-general code that refers to the project-specific tokens.
 
@@ -112,6 +114,8 @@ Tokens are usually represented in R as _vectors_. The most common way of creatin
 
 ```{r token, echo = 1:15, eval = F}
 ```
+##### Object naming methods
+
 Many analytic procedures require the specification of sets of project-specific elements. For example, we often need to refer to the entire set of item names, or the entire set of form names. To assemble these sets, we need to specify the name of the set, and the names of the elements within the set.
 
 To create the required names, we can a string functions such as `stringr::str_c()` to combine tokens and explicit text. For example,
