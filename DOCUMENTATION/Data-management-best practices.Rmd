@@ -100,7 +100,9 @@ assign(str_c("data", age_range_name, form_name, sep = "_"),
 
 ##### Named objects in the R workspace
 
-In the R data workflow, the _process_ component consists of code that manipulates named data objects in the global programming environment.^[Although many environments exist within R workspace, in general our data objects are contained in the most general and inclusive of these: the _global environment_.] By reading the _input_ components of the workflow, we initialize them as named input objects. Applying code, we transform input objects into named output objects. We complete the workflow by writing the _output_ components to external files.
+When R boots up, it opens a workspace, or programming environment, in local memory. The environment contains _objects_, or data elements (e.g., vectors, data frames, lists, etc). Crucially, each object has a unique name that allows it to be referenced by code.
+
+Our robust data workflow operates in this programming environment.^[Actually, many discrete environments may exist within the R workspace. In general our data objects are contained in the most general and inclusive of these: the _global environment_.] The workflow's _process_ component consists of R code that manipulates named data objects. By reading the _input_ components of the workflow, we initialize them as named input objects in the R environment. Thus, the input components now exist in local memory, in addition to being saved files in some other location. Applying code, we transform input objects into named output objects, which also reside in local memory. We complete the process by writing the output objects to external files (saved elsewhere), where they become the _output_ components of the data workflow.
 
 Clearly, names are an important feature of the workflow. R provides naming functions that allow us to assemble and manipulate names to support the robustness of our code. More on this in a moment.
 
