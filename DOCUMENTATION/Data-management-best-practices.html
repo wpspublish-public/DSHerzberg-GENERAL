@@ -179,7 +179,7 @@ pre code {
 </ol>
 <p>This document describes the core principles of a <em>robust</em> data workflow based on R, RStudio, and the tidyverse. Going forward, we will use the terms “method”, “process”, and “workflow” somewhat interchangeably. Here, “robustness” means something like “widely applicable, adaptable, and resilient against external sources of error and disruption.” A robust process imposes stringent and specific requirements on it inputs, and allows equally rigorous definition of its outputs. But when the input conditions are satisfied, the robust process, <em>in its generic form</em>, consistently and reliably yields the required output.</p>
 <p>In practice, this robust workflow can be automated and re-purposed across projects, minimizing start-up time, code customization, copying-and-pasting within scripts, and vulnerability to operator error. The robust process is supported by code templates, detailed documentation, and a set of work habits and guidelines for how data files are managed and shared among multiple users.</p>
-<p>The document contains blocks of executable code, alongside extensive commentary. The narrative is organized into sections reflecting discrete topics and operations in the workflow. Each section has two parts:</p>
+<p>The current document contains blocks of executable code, alongside extensive commentary. The narrative is organized into sections reflecting discrete topics and operations in the workflow. Each section has two parts:</p>
 <ol style="list-style-type: decimal">
 <li><code>EXECUTABLE CODE</code>: this code can be copy-and-pasted into a working R script. Before running, make sure that all file paths are specified correctly for the local environment. <strong>Note that all code in this document was written for the Mac OS; Windows typically requires the substitution of <code>\</code> for <code>/</code> in file paths.</strong></li>
 <li><code>COMMENTED SNIPPETS</code>: these snippets provide analysis and explanation of the code and workflow. The R code in these snippets is redundant with that in the <code>EXECUTABLE CODE</code> section. Here, it serves merely to enhance the documentation, and is not meant to be run.</li>
@@ -189,7 +189,7 @@ pre code {
 </div>
 <div id="first-things-first-create-an-rstudio-project-and-standard-folder-structure" class="section level4">
 <h4>First things first: Create an RStudio project and standard folder structure</h4>
-<p>The robust workflow is based on the RStudio project folder structure. We can set up a project in RStudio by clicking <em>File -&gt; New Project</em>. Specify a top-level working directory associated with the project. Create the following folders within the working directory:</p>
+<p>The robust workflow is based on the RStudio project folder structure. To set up a project in RStudio, click <em>File -&gt; New Project</em>. Specify a top-level working directory associated with the project. Create the following folders within the working directory:</p>
 <ul>
 <li><code>CODE</code>: R scripts (<code>*.R</code>)</li>
 <li><code>DOCUMENTATION</code>: explanatory documents (<code>*.rmd</code>, <code>*.html</code>)</li>
@@ -242,24 +242,32 @@ assign(str_c(&quot;data&quot;, age_range_name, form_name, sep = &quot;_&quot;),
 <div id="commented-snippets" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
 </div>
-<div id="named-objects-in-the-r-workspace" class="section level5">
-<h5>Named objects in the R workspace</h5>
+<div id="object-and-variable-names-in-r" class="section level5">
+<h5>Object and variable names in R</h5>
 <p>When R boots up, it opens a workspace, or programming environment, in local memory. The environment contains <em>objects</em>, or data elements (e.g., vectors, data frames, lists, etc.). Each object has a unique name that allows it to be referenced by code.</p>
 <p>Our robust data workflow operates in this programming environment.<a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a> The workflow’s <em>process</em> component consists of R code that manipulates named data objects. By reading the <em>input</em> components of the workflow, we initialize them as named input objects in the R environment. Thus, the input components now exist in local memory, in addition to being saved files in some other location. Applying code, we transform input objects into named output objects, which also reside in local memory. We complete the process by writing the output objects to external files (saved elsewhere), where they become the <em>output</em> components of the data workflow.</p>
 <p>Clearly, names are an important feature of the workflow. R provides naming functions that allow us to assemble and manipulate names to support the robustness of our code. More on this in a moment.</p>
-<p>To create code that is coherent, readable and aligned with the general nomenclature of the project, the names of R data objects should either be identical to, or closely related to the names present in the raw data files (the input components of the data workflow).</p>
-<p>The names in the raw data files encompass the names of folders, files, variable, and more specifically names of forms, scales, age-ranges, raters, operators, and so on. These names belong to a class of <em>project-specific</em> data elements. Consider the differences between two projects: a parent interview for adaptive behavior, and an ADHD-focused rating scale. These two projects will have different file names, variable names, and so on.</p>
-<p>These differences embody the challenge of developing code templates to support a robust data workflow. To ensure robustness, the templates must be able to handle the input components of different projects with little or no code customization. Yet it’s precisely the need to manipulate project-specific data elements that often creates the need for code customization, not to mention extensive copying-and-pasting of names throughout scripts.</p>
+<p>Names exist in a two-level hierarchy in R:</p>
+<ol style="list-style-type: decimal">
+<li>Named data objects in the programming environment;</li>
+<li>Variable (column) names <em>within</em> those data objects.</li>
+</ol>
+<p>We create object names in our code, and we can modify the variable names that exist within the data objects.</p>
+<p>To create code that is coherent, readable and aligned with the general nomenclature of the project, names should either be identical to, or closely related to the names present in the raw data files (the input components of the data workflow).</p>
+<p>In raw data files, names exist on the level of files and folders, and also on the level of variables. These names belong to a class of <em>project-specific</em> data elements. Consider the differences between two projects: a parent interview for adaptive behavior, and an ADHD-focused rating scale. These two projects will have different file names, variable names, and so on.</p>
+<p>These differences embody the challenge of developing code templates to support a robust data workflow. To ensure robustness, the templates must be able to handle the input components of different projects with little or no code customization. Yet the need to manipulate project-specific data elements often demands code customization, not to mention extensive copying-and-pasting of names throughout scripts.</p>
 <p>Robustness therefore depends on two key name-handling features. We need to be able to:</p>
 <ol style="list-style-type: decimal">
-<li>Enter the names only once, and have those names flow automatically throughout the entire script.</li>
+<li>Enter the project-specific names only once, and have those names flow automatically throughout the entire script.</li>
 <li>Assemble complex names that combine two or more project-specific elements.</li>
 </ol>
-<p>Robust code templates make use of a certain class of named objects called <em>tokens</em>. A token contains an element of data that is processed one or more times by the code. Examples of tokens include names of variables, files, folders, test forms, raters, etc., as well as labels for age and score ranges, score item counts, numerical bounds, and so forth.</p>
-<p>What these examples all have in common is that they represent <em>project-specific</em> data elements. Thus, for example, variable names typically differ between, say, an autism rating-scale project and an ADHD rating-scale project.</p>
-<p>Robust templates can be adapted to different projects with minimal sustitution and copying-and-pasting of text.</p>
-<p>In contrast, the <em>project-general</em> aspects of an R script are those functions and operations whose specification is identical for all projects (e.g., creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the autism rating scale or the ADHD rating scale). In a robust template, tokens representing project-specific elements are defined at the head of the script. The remainder of the script consists of project-general code that refers to the project-specific tokens.</p>
-<p>Tokens are usually represented in R as <em>vectors</em>. The most common way of creating a vector is by using the assignment operator <code>&lt;-</code>, which creates a data object in the R programming environment and assigns a name to it. For example, the first line of the next snippet is <code>urlRemote_path  &lt;- &quot;https://raw.githubusercontent.com/&quot;</code>, which creates the token <code>urlRemote_path</code>, a vector whose sole element is the string <code>&quot;https://raw.githubusercontent.com/&quot;</code>. When initializing a vector that contains more than one string element, we wrap the elements in the combine function <code>base::c()</code>, as in <code>scale_suffix &lt;- c(&quot;S1&quot;, &quot;S2&quot;, &quot;S3&quot;, &quot;S4&quot;, &quot;S5&quot;, &quot;TOT&quot;)</code>.</p>
+<p>To satisfy the first requirement, we initialize <em>tokens</em> at the head of the code template. A token contains an element of data (usually a name) that is processed by the code at least once (but usually several times). Examples of tokens include names of variables, files, folders, test forms, raters, etc., as well as labels for age and score ranges, score item counts, numerical bounds, and so forth.</p>
+<p>A complete set of tokens therefore encompasses all of the project-specific names that we need to manipulate in the ensuing script. The remainder of the template is primarily <em>project-general</em> code, consisting of those functions and operations whose specification is identical for all projects For example, creating a table of descriptive statistics requires calling the same set of functions, regardless of whether the input data are from the adaptive behavior parent interview or the ADHD rating scale. In this way, the process component of the robust data workflow is the execution of project-general functions that refer to project-specific tokens.</p>
+</div>
+<div id="naming-methods" class="section level5">
+<h5>Naming methods</h5>
+<p>R offers several methods for creating names and assigning them to objects and variables. The most common way is to use the assignment operator <code>&lt;-</code>, which creates a data object in the R programming environment and assigns a name to it. We can use the assignment operator to initialize tokens, which are usually represented in R as <em>vectors</em>, a certain type of data object.</p>
+<p>For example, the first line of the next snippet is <code>urlRemote_path  &lt;- &quot;https://raw.githubusercontent.com/&quot;</code>, which creates the token <code>urlRemote_path</code>, a vector whose sole element is the string <code>&quot;https://raw.githubusercontent.com/&quot;</code>. When initializing a vector that contains more than one string element, we wrap the elements in the combine function <code>base::c()</code>, as in <code>scale_suffix &lt;- c(&quot;S1&quot;, &quot;S2&quot;, &quot;S3&quot;, &quot;S4&quot;, &quot;S5&quot;, &quot;TOT&quot;)</code>.</p>
 <pre class="r"><code>urlRemote_path  &lt;- &quot;https://raw.githubusercontent.com/&quot;
 github_path &lt;- &quot;DSHerzberg/RATING-SCALE-ANALYSIS/master/INPUT-FILES/&quot;
 input_name &lt;- &quot;data-RS-sim-child-parent.csv&quot;
@@ -274,21 +282,19 @@ TOT_raw_lower_bound &lt;- 50
 subscale_raw_upper_bound &lt;- 40
 t_score_lower_bound &lt;- 40
 t_score_upper_bound &lt;- 80</code></pre>
-</div>
-<div id="object-naming-methods" class="section level5">
-<h5>Object naming methods</h5>
-<p>Many analytic procedures require the specification of sets of project-specific elements. For example, we often need to refer to the entire set of item names, or the entire set of form names. To assemble these sets, we need to specify the name of the set, and the names of the elements within the set.</p>
-<p>To create the required names, we can a string functions such as <code>stringr::str_c()</code> to combine tokens and explicit text. For example,</p>
-<pre><code>prefix &lt;- &quot;i&quot;
-items &lt;- str_c(prefix, c(&quot;001&quot;, &quot;002&quot;, &quot;003&quot;), sep = &quot;_&quot;)</code></pre>
-<p>returns a token (vector) that is a set of item names. The token is named <code>items</code>, and the item names are <code>&quot;i_001&quot; &quot;i_002&quot; &quot;i_003&quot;</code>.</p>
-<p>Often, we need to name an object (create a token) not with an explicit string such as <code>&quot;items</code>&quot;, but with a concatenated string returned by a function such as <code>str_c()</code>. In these instances, instead of the assignment operator <code>&lt;-</code>, we use <code>base::assign()</code> to name the object (token). <code>assign()</code> takes two arguments, the desired token name (concatenated with <code>str_c()</code>), and the expression that defines the object(s) to be named.</p>
+<p>The assignment operator works well for creating simple names that are themselves <em>explicit</em> strings (e.g., “item_prefix”, “scale_prefix”, etc. in the previous snippet). However recall from the earlier discussion that we often need to assemble complex names consisting of two or more project-specific elements. These complex names are <em>concatenated</em> strings (i.e., single strings resulting from the combination of several parts). We use R’s suite of concatenating functions to join explicit strings and previously defined tokens into new complex names.</p>
+<p>The assignment operator cannot be used to create complex names. Instead, we use <code>base::assign()</code>, which takes two arguments: The desired name (concatenated with <code>stringr::str_c()</code> or another string function), and the expression that defines the object(s) to be named.</p>
 <p>In the example below, we use <code>assign()</code> to name an input data file read in by <code>readr::read_csv()</code>. The first argument, <code>str_c(&quot;data&quot;, age_range_name, form_name, sep = &quot;_&quot;)</code>, returns the name <code>data_child_parent</code>, combining the file type description (<code>&quot;data&quot;</code>, provided as an explicit string) with the age-range (<code>age_range_name</code>) and rater (<code>form_name</code>) tokens. The combination of these latter two tokens identifies the form whose data is contained in the input file. The last argument to <code>str_c()</code> is <code>sep = &quot;_&quot;</code>, which indicates that in the returned name, the concatenated elements will be separated by underscores.</p>
-<p>The second argument to <code>assign()</code> specifies the data object to be named with the concatenated string. Here, an object is created by reading the input data file with <code>read_csv()</code>. Note how the input file path is a concatenation of three previously defined tokens <code>str_c(urlRemote_path, github_path, input_name)</code>.</p>
+<p>The second argument to <code>assign()</code> specifies the data object to be named with the concatenated string. Here, an object is created by reading the input data file with <code>read_csv()</code>. Note how the input file path is itself a concatenation of three previously defined tokens <code>str_c(urlRemote_path, github_path, input_name)</code>.</p>
 <pre class="r"><code>assign(str_c(&quot;data&quot;, age_range_name, form_name, sep = &quot;_&quot;),
        suppressMessages(read_csv(url(
          str_c(urlRemote_path, github_path, input_name)
        ))))</code></pre>
+<p><code>str_c()</code> is also useful in creating tokens that are sets of project-specific elements. For example, we often need to refer to the entire set of item names, or the entire set of form names. To assemble these sets, we need to specify names on two levels: the name of the set (the token name), and the names of the elements within the set.</p>
+<p>Often, the desired set element names are numerically sequenced (e.g., the set of item names). In these instances, we can use <code>str_c()</code> to combine a prefix (represented as a token or an explicit string) with a vector containing the desired numerical sequence. For example,</p>
+<pre><code>prefix &lt;- &quot;i&quot;
+items &lt;- str_c(prefix, c(&quot;001&quot;, &quot;002&quot;, &quot;003&quot;), sep = &quot;_&quot;)</code></pre>
+<p>returns a token (vector) that is a set of item names. The token is named <code>items</code>, and the item names are <code>&quot;i_001&quot; &quot;i_002&quot; &quot;i_003&quot;</code>. This operation takes advantage of the fact that R “recycles” vectors. In other words, <code>str_c()</code> combines the first argument (the token <code>prefix</code>) with the second argument (a three-element vector of numbers) over the entire length of the second argument, yielding a three-element vector as its output.</p>
 <p><br></p>
 </div>
 </div>
