@@ -1,8 +1,8 @@
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
-urlRemote_path  <- "https://raw.githubusercontent.com/"
-github_path <- "DSHerzberg/GENERAL/master/INPUT-FILES/"
+urlRemote_path  <- "https://raw.github.com/"
+github_path <- "wpspublish/DSHerzberg-GENERAL/master/INPUT-FILES/"
 
 input_orig <- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, 

@@ -11,117 +11,97 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 This a method for recoding items within subtests, once a ceiling (or stop rule) has been satisfied. In its current form, the method applies a single stop-rule across all subtests.
 
-Consider a test of cognitive ability, with subtest items ordered by increasing difficulty. With a stop rule of five, the examiner stops administering items after failure on five consecutive items. In the raw data file, data are missing for all items above the ceiling item. However, the ceiling rule requires that these items counted as failed, which creates the need to recode the items from `NA` to `0`. 
+Consider a test of cognitive ability, with subtest items ordered by increasing difficulty. With a stop rule of five, the examiner stops administering items after failure on five consecutive items. In the raw data file, data are missing for all items above the ceiling item. However, the ceiling rule requires that counting these items as failed, meaning they must be recoded from `NA` to `0`. 
+
+The central operation here is counting consecutive `0` responses in the data, and recoding only items above the level where the ceiling rule is reached. To accomplish this, we first pivot the data from wide to long format, such that consecutive items are structured as consecutive rows, instead of consecutive columns. This allows the row-wise application of key `dplyr` and `tidyr` functions, and facilitates more concise code.
 
 
 ###### RUNNABLE CODE
-```{r script, eval = T}
-library(tidyverse)
+```{r script, eval = FALSE}
+suppressMessages(library(here))
+suppressMessages(library(tidyverse))
+suppressMessages(library(runner))
 
-urlRemote_path  <- "https://raw.githubusercontent.com/"
-github_path <- "DSHerzberg/GENERAL/master/INPUT-FILES/"
+urlRemote_path  <- "https://raw.github.com/"
+github_path <- "wpspublish/DSHerzberg-TOD-R/master/INPUT-FILES/"
+fileName_path   <- "TOD-E-recode-above-ceiling-input.csv"
 
-input_orig <- suppressMessages(read_csv(url(
-  str_c(urlRemote_path, github_path, 
-        "Recode-across-multiple-subsets-of-columns-dataOrig.csv")
+input <- suppressMessages(read_csv(url(
+  str_c(urlRemote_path, github_path, fileName_path)
 )))
 
-blimp_output <- suppressMessages(read_csv(url(
-  str_c(urlRemote_path, github_path, 
-        "BLIMP-impute-output.csv")
-))) %>% 
-  pivot_wider(names_from = item,
-              values_from = response) %>%
-  setNames(names(input_orig))
-
-col_subsets <- c("i001:i050", "i051:i084", "i085:i114", "i115:i185", 
-               "i186:i206", "i207:i251", "i252:i293")
-
-miss_recode <- col_subsets %>%
-  map_df(
-    ~
-      input_orig %>%
-      filter(across(!!rlang::parse_expr(.x),
-                    ~ is.na(.))) %>%
-      mutate(recode_cols1 = .x) %>%
-      select(ID, recode_cols1)
-  ) %>%
-  arrange(ID) %>%
+input_tall <- input %>%
+  pivot_longer(
+    cols = -ID,
+    names_to = c("pre", "num"),
+    names_sep = 4
+  )  %>%
+  group_by(ID, pre) %>%
   mutate(
-    streak = runner::streak_run(ID),
-    recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
-                             T ~ NA_character_),
-    recode_cols3 = case_when(lead(streak, 2) == 3 ~ lead(recode_cols1, 2),
-                             T ~ NA_character_)
-  ) %>% 
-  filter(streak == 1) %>% 
-  select(-streak)
+    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
+                           TRUE ~ NA_integer_),
+    ceiling = case_when(
+      streak_val == 5 ~ 1,
+    TRUE ~ 0)
+  )
 
-blimp_recode <- blimp_output %>%
-  left_join(miss_recode, by = "ID") %>%
-  relocate(c(recode_cols1, recode_cols2, recode_cols3), .after = "ID") %>%
-  pivot_longer(cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3),
-               names_to = c("item")) %>%
-  extract(
-    recode_cols1,
-    into = c("start1", "end1"),
-    "([:alnum:]{4}):(.*)",
-    remove = F
-  ) %>%
-  extract(
-    recode_cols2,
-    into = c("start2", "end2"),
-    "([:alnum:]{4}):(.*)",
-    remove = F
-  ) %>%
-  extract(
-    recode_cols3,
-    into = c("start3", "end3"),
-    "([:alnum:]{4}):(.*)",
-    remove = F
-  ) %>%
+ceiling <-  input_tall %>% 
+  group_by(ID, pre) %>% 
+  summarise(ceiling_count = sum(ceiling)) %>% 
+  mutate(ceiling_reached = case_when(
+    ceiling_count >= 1 ~ 1,
+    TRUE ~ NA_real_
+  )) %>% 
+  select(-ceiling_count)
+
+ recode_output <- input_tall %>% 
+  left_join(ceiling, by = c("ID", "pre")) %>% 
   group_by(ID) %>%
   mutate(
-    recode_run =
-      case_when(
-        start1 == item ~ "recode1",
-        end1 == item ~ "recode1",
-        start2 == item ~ "recode2",
-        end2 == item ~ "recode2",
-        start3 == item ~ "recode3",
-        end3 == item ~ "recode3",
-        T ~ NA_character_
-      ),
-    across(recode_run,
-           ~ runner::fill_run(., only_within = T)),
-    across(value,
-           ~ case_when(
-             recode_run %in% c("recode1", "recode2", "recode3") ~ NA_real_,
-             T ~ value
-           ))
-  ) %>%
-  select(ID, item, value) %>%
-  pivot_wider(
-    names_from = item,
-    values_from = value) %>%
-  ungroup()
+    NA_status = case_when(
+      (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
+      is.na(value) & !is.na(lag(value)) & pre == lag(pre) & ceiling_reached == 1 ~ "onset_NA",
+      TRUE ~ NA_character_
+    )
+  ) %>% 
+   group_by(ID, pre) %>% 
+   mutate(
+     across(
+       c(NA_status),
+       ~ fill_run(.)
+     )
+   ) %>% 
+ mutate(new_val = case_when(NA_status %in% c("onset_NA", "offset_NA") ~ 0,
+                            TRUE ~ value)) %>%
+   pivot_wider(
+     id_cols = ID,
+     names_from = c(pre, num),
+     names_sep = "",
+     values_from = new_val
+   )
+ 
+ write_csv(recode_output,
+           here(str_c("OUTPUT-FILES/TOD-recode-",
+                      format(Sys.Date(), "%Y-%m-%d"),
+                      ".csv")),
+           na = "")
 ```
 
 <br>
 
 ###### COMMENTED SNIPPETS
-First we read in the original input data set, which contains cases that are entirely missing on one, two, or three subsets of items. Note the use of `readr::read_csv(url())` to read in a file from a remote server (github).
-```{r script, echo = 6:9, eval = F}
+Load libraries and read input data. Note the use of `readr::read_csv(url())` to read in a file from a remote server (github).
+```{r script, echo = 1:12, eval = FALSE}
 ```
 Now we read the output file that BLIMP generates when it imputes the missing data from the original input. In this BLIMP output, there are no missing data. 
 
 Note that in this demonstration, `BLIMP-impute-output.csv` has column names. Usually, the raw output from a BLIMP imputation lacks column names. In this case, we must use the argument `col_names = F` in the call of `read_csv()`; otherwise R will erroneously read the first row of data as column names. We can then name the columns appropriately by inserting `base::setNames(c("ID", "item", "response"))` into the pipeline.
 
 Additionally, the BLIMP output is in tall (multi-level) format, in which items and responses are nested within ID numbers. We can use `tidyr::pivot_wider()` to transform the data object into wide format, drawing the item column names from the `item` column, and the imputed responses from the `response` column. We then rename all columns to match the naming scheme of the original input data, using `setNames(names(input_orig))`.
-```{r script, echo = 11:17, eval = F}
+```{r script, echo = 11:17, eval = FALSE}
 ```
 Now we initialize a character vector `col_subsets`, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.
-```{r script, echo = 19:20, eval = F}
+```{r script, echo = 19:20, eval = FALSE}
 ```
 The next code segment returns a data frame `miss_recode` whose rows are the cases that need column subsets recoded, with up to three subsets identified per case. We use `map_df()` to apply functions to `input_orig`, iterating over the column ranges contained in `col_subsets`. Thus, wherever the token `.x` appears, `map_df()` substitutes the current-iteration element of `col_subsets` (e.g., `"i001:i050"`) into the code.
 
@@ -130,7 +110,7 @@ Central to this operation is `dplyr::filter()` which finds cases (rows) that mee
 We then use `dplyr::mutate()` to create a new variable `recode_cols1` that holds the label of the first column range that is all missing for the filtered rows. Here, `mutate()` can operate on `.x` with out any NSE transformations, because the value of `.x` is a string, which is the correct variable type to represent the column range in `recode_cols1`.  We use `dplyr::select()` to keep only two columns going forward.
 
 In the current data object, if a case is all missing on more than one column range, it has a duplicate `ID` row for each of the ranges. We use `dplyr::arrange()` to sort the rows by `ID`, so the duplicate `ID` rows are adjacent to one another.
-```{r script, echo = 22:31, eval = F}
+```{r script, echo = 22:31, eval = FALSE}
 ```
 We now execute a transformation by which cases with multiple missing column ranges have the labels for those ranges placed in new columns, as oppose to adjacent rows within the `recode_cols1` column. To do this, we use `mutate()` to create three new columns. `streak` is the output of `runner::streak_run(ID)`, which returns each row's ordinal position within a sequence of consecutive instances of identical values of `ID`. In other words, `streak` is always 1 for non-duplicate values of `ID`. For duplicate `ID` rows, `streak` is 2 or 3, respectively, for the second or third consecutive occurrence of the same `ID` value.
 
@@ -143,42 +123,42 @@ We identify the first row in a set of duplicate `ID` rows with the predicate `le
 We assign values for `recode_cols3` with a similar procedure, except here we look ahead _two_ rows, by passing the argument `2` to `lead()`. Two rows ahead is where we will find the label for any third set of all-missing columns (and where the value of `streak` is 3).
 
 To finish the procedure, we drop the superfluous duplicate `ID` rows by calling `filter(streak == 1)`. We no longer need rows where `streak` is 2 or 3, because those rows contain column range labels are now registered in `recode_cols2` and `recode_cols3`. The resulting data object `miss_recode` contains a single row for each case that requires recoding of column ranges.
-```{r script, echo = 32:40, eval = F}
+```{r script, echo = 32:40, eval = FALSE}
 ```
-```{r print1, echo = F, eval = T}
+```{r print1, echo = F, eval = FALSE}
 knitr::kable(slice(miss_recode, 7:9))
 ```
 
 The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use `dplyr::left_join()` to bind the `blimp_output` and `miss_recode` data frames, passing `by = "ID"` to align the columns by `ID`. We `relocate()` columns to obtain a desired sequence. 
 
 We then `pivot_longer()` to transform the data object into the tall (multilevel format), in which items and responses are nested within each value of `ID`. In the argument `cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3)` we exclude the four named columns from the pivot to the longer format, thus establishing that in the outer level of nesting, each value of `ID` will be paired with the correct labels contained in the three `recode_cols` columns. In the resulting long data object, the input column names are contained in a single column given by the argument `names_to = c("item")`, and the paired responses are contained the `value` column. As a result, we now need only recode values in a single column. In the wide format, we would have needed to recode multiple columns, which would require more elaborate code.
-```{r script, echo = 41:46, eval = F}
+```{r script, echo = 41:46, eval = FALSE}
 ```
 We now use `tidyr::extract()` to create new columns that will hold markers delineating the ranges of rows in the `value` column that need to be recoded. Here we examine only the code segment that operates on `recode_cols1`; an analogous procedure is used on `recode_cols2` and `recode_cols3`.
 
-`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([:alnum:]{4}):(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to `start1` (`([:alnum:]{4})`) and `end1` (`(.*)`). Characters outside the parentheses (e.g., `:`) are dropped. The final argument `remove = F` indicates that the source column will be retained in the output.
+`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([[:alnum:]]{4}):(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to `start1` (`([[:alnum:]]{4})`) and `end1` (`(.*)`). Characters outside the parentheses (e.g., `:`) are dropped. The final argument `remove = F` indicates that the source column will be retained in the output.
 
 This `extract()` sequence is repeated for `recode_cols2` and `recode_cols3`, creating `start` and `end` columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.
-```{r script, echo = 47:52, eval = F}
+```{r script, echo = 47:52, eval = FALSE}
 ```
 In the next sequence, we use the `runner` package to label rows (items) for recoding. Because we need `fill_run()` to operate only within values of `ID` (that is, within single cases), we call `dplyr::group_by()` to group the data object by `ID`.
 
 We then invoke `mutate()` to create a new column `recode_run` to hold the start and end points for the item ranges to be recoded. We assign values using `case_when()`, marking the start item for first range to be recoded with the expression `start1 == item ~ "recode1"`. When evaluated, this expression finds the row that represents the item named in `start1`; that is, the _first_ item in the first item range to be recoded. In this row, it assigns the value `recode1` to the column `recode_run`. With the expression `end1 == item ~ "recode1"`, `case_when()` assigns `recode1` to mark the row containing the _last_ item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (`ID`) are now marked, within the `recode_run` column.
-```{r script, echo = 65:76, eval = F}
+```{r script, echo = 65:76, eval = FALSE}
 ```
 We can use `runner::fill_run()` to fill in values between the labeled start and end rows. We use `across()` to address only the `recode_run` column, and call `fill_run()` with the formula shorthand `~`. We provide the `.` shorthand to specify `recode_run`, and pass the argument `only_within = T` to limit the filling of values to only those rows _between_ the start and end points of item ranges to be recoded. As a result, each row in the first item range is now labeled with `recode1`, and similarly for the second and third item ranges.
-```{r script, echo = 77:78, eval = F}
+```{r script, echo = 77:78, eval = FALSE}
 ```
 We use `case_when()` to recode the column `value`, recoding only the labeled rows to `NA`. The expression `recode_run %in% c("recode1", "recode2", "recode3") ~ NA_real_` specifies that whenever the value of `recode_run` is one of three elements `%in%` a character vector, the value of `value` will be changed to `NA`. Passing the "else" argument `T ~ value` leaves all other rows within `value` unchanged.
-```{r script, echo = 79:84, eval = F}
+```{r script, echo = 79:84, eval = FALSE}
 ```
 Finishing up, we use `select()` to drop all columns except those needed to recreate the original wide format, in which we had only the ID and item columns. We `pivot_wider()` the data object back to wide format, drawing the item column names from the `item` column, and the item row values from the `value` column.
-```{r script, echo = 85:89, eval = F}
+```{r script, echo = 85:89, eval = FALSE}
 ```
 The following table illustrates how the recoding process plays out for case `230010`, which is missing data both on subtests that the examinee attempted (Type 1), and on all items of subtests _NOT_ attempted (Type 2). Specifically, `230010` is Type 2 missing on the item range `i051:i084`.
 
 The table shows items `i051` to `i060` for case `230010`, at three stages of the process. In the original input data `input_orig`, the item range is all `NA`, because the examinee did not attempt any items in this range. In the unrecoded `blimp_output`, the item range is all `1` because BLIMP imputed the missing data. In the recoded `blimp_recode`, the item range has been recoded back to its correct Type 2 state of `NA`. This recoding operation leaves the imputations in place for any Type 1 missing data.
-```{r print2, echo = F, eval = T}
+```{r print2, echo = F, eval = FALSE}
 temp_input <- input_orig %>% 
   filter(ID == 230010) %>% 
   select(ID, i051:i060) %>% 
