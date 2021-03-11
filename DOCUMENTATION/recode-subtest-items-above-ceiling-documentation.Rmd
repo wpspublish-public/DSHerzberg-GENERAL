@@ -1,5 +1,5 @@
 ---
-title: <font size="6">Recoding across multiple subsets of columns</font>
+title: <font size="6">Recoding subtest items above a ceiling</font>
 output: html_document
 ---
 
@@ -9,14 +9,10 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 #### Overview
 
-This a method for recoding all values within multiple subsets of columns. The need for this method arose in the TOD project in 2020. In those data sets, we had two types of missing data:
+This a method for recoding items within subtests, once a ceiling (or stop rule) has been satisfied. In its current form, the method applies a single stop-rule across all subtests.
 
-1. Missing item responses within subtests that were taken by examinees.
-2. All item responses missing for certain subtests _not taken_ by examinees.
+Consider a test of cognitive ability, with subtest items ordered by increasing difficulty. With a stop rule of five, the examiner stops administering items after failure on five consecutive items. In the raw data file, data are missing for all items above the ceiling item. However, the ceiling rule requires that these items counted as failed, which creates the need to recode the items from `NA` to `0`. 
 
-In these data sets, we first used BLIMP to impute all missing values, but then needed to go back and recode to missing certain subsets of items that were originally missing because the examinee did not attempt the subtests (type 2).
-
-To accomplish this, we need both the original input data set, so we can identify cases that have type 2 missing data, and the BLIMP imputed output data set, because that is where the type 2 column subsets need to be recoded back to their original `NA` status.
 
 ###### RUNNABLE CODE
 ```{r script, eval = T}
@@ -69,19 +65,19 @@ blimp_recode <- blimp_output %>%
   extract(
     recode_cols1,
     into = c("start1", "end1"),
-    "([[:alnum:]]{4}):(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols2,
     into = c("start2", "end2"),
-    "([[:alnum:]]{4}):(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols3,
     into = c("start3", "end3"),
-    "([[:alnum:]]{4}):(.*)",
+    "([:alnum:]{4}):(.*)",
     remove = F
   ) %>%
   group_by(ID) %>%
@@ -160,7 +156,7 @@ We then `pivot_longer()` to transform the data object into the tall (multilevel 
 ```
 We now use `tidyr::extract()` to create new columns that will hold markers delineating the ranges of rows in the `value` column that need to be recoded. Here we examine only the code segment that operates on `recode_cols1`; an analogous procedure is used on `recode_cols2` and `recode_cols3`.
 
-`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([[:alnum:]]{4}):(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to `start1` (`([[:alnum:]]{4})`) and `end1` (`(.*)`). Characters outside the parentheses (e.g., `:`) are dropped. The final argument `remove = F` indicates that the source column will be retained in the output.
+`extract()` splits strings contained in one column and places each part into a new column. The first argument names `recode_cols1` as the source column, and the second argument (`into =`) names `start1` and `end1` as the two destination columns. The third argument `"([:alnum:]{4}):(.*)"` is a regular expression that specifies how and where to split the value contained in `recode_cols1` into two strings. For example, we can split the range label `"i001:i050"` into `i001` (the first item number in the range) and `i050` (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to `start1` (`([:alnum:]{4})`) and `end1` (`(.*)`). Characters outside the parentheses (e.g., `:`) are dropped. The final argument `remove = F` indicates that the source column will be retained in the output.
 
 This `extract()` sequence is repeated for `recode_cols2` and `recode_cols3`, creating `start` and `end` columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.
 ```{r script, echo = 47:52, eval = F}

@@ -50,19 +50,19 @@ blimp_recode <- blimp_output %>%
   extract(
     recode_cols1,
     into = c("start1", "end1"),
-    "([:alnum:]{4}):(.*)",
+    "([[:alnum:]]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols2,
     into = c("start2", "end2"),
-    "([:alnum:]{4}):(.*)",
+    "([[:alnum:]]{4}):(.*)",
     remove = F
   ) %>%
   extract(
     recode_cols3,
     into = c("start3", "end3"),
-    "([:alnum:]{4}):(.*)",
+    "([[:alnum:]]{4}):(.*)",
     remove = F
   ) %>%
   group_by(ID) %>%
