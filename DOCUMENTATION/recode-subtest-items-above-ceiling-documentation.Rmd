@@ -34,7 +34,7 @@ input_tall <- input %>%
   pivot_longer(
     cols = -ID,
     names_to = c("pre", "num"),
-    names_sep = 4
+    names_sep = 3
   )  %>%
   group_by(ID, pre) %>%
   mutate(
@@ -81,7 +81,7 @@ ceiling <-  input_tall %>%
    )
  
  write_csv(recode_output,
-           here(str_c("OUTPUT-FILES/TOD-recode-",
+           here(str_c("OUTPUT-FILES/recode-above-ceiling-output-",
                       format(Sys.Date(), "%Y-%m-%d"),
                       ".csv")),
            na = "")
