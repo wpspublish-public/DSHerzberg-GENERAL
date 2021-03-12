@@ -1,26 +1,31 @@
-suppressMessages(library(here))
-suppressMessages(library(tidyverse))
-suppressMessages(library(runner))
+temp1 <- recode_output %>% filter(
+  NA_status == "onset_NA" | lead(NA_status) == "onset_NA" | lag(NA_status) == "onset_NA"
+)
 
-urlRemote_path  <- "https://raw.githubusercontent.com/"
-github_path <- "DSHerzberg/TOD-R/master/INPUT-FILES/"
-fileName_path   <- "TOD-E-recode-above-ceiling-input.csv"
+temp2 <- recode_output %>% filter(
+  (
+    streak_val == 1 | is.na(streak_val) & lead(streak_val) == 1 |
+      is.na(streak_val) & lag(streak_val) == 1
+  ) &
+    (
+      NA_status == "onset_NA" |
+        lead(NA_status) == "onset_NA" | lag(NA_status) == "onset_NA"
+    )
+)
 
-input <- suppressMessages(read_csv(url(
-  str_c(urlRemote_path, github_path, fileName_path)
-)))
+temp3 <- recode_output %>%
+  mutate(laglead = case_when(
+    lag(NA_status) == "onset_NA" |
+      lead(NA_status) == "onset_NA" ~ 1,
+    TRUE ~ NA_real_
+  )) %>% 
+  filter(
+    NA_status == "onset_NA" | laglead == 1
+  )
 
+temp4 <- temp3 %>%
+  filter(
+    (NA_status == "onset_NA" & lag(streak_val) == 1) | laglead == 1
+  )
 
-INPUT-FILES/test1.csv
-https://github.com/wpspublish/DSHerzberg-TOD-R/blob/4b927433b7a70f3d4ed71ff61129c5f7ee3918c0/INPUT-FILES/test1.csv
-
-
-urlRemote_path  <- "https://raw.github.com/"
-github_path <- "wpspublish/DSHerzberg-TOD-R/master/INPUT-FILES/"
-fileName_path   <- "test1.csv"
-
-input <- suppressMessages(read_csv(url(
-  str_c(urlRemote_path, github_path, fileName_path)
-)))
-
-
+  

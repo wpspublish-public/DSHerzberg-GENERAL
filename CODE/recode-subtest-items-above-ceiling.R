@@ -41,8 +41,14 @@ recode_output <- input_tall %>%
   group_by(ID) %>%
   mutate(
     NA_status = case_when(
+      # (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
+      # is.na(value) & !is.na(lag(value)) & pre == lag(pre) & ceiling_reached == 1 ~ "onset_NA",
+      # TRUE ~ NA_character_
+      # (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
+      # is.na(value) & !is.na(lag(value)) & pre == lag(pre) & lag(ceiling) == 1 ~ "onset_NA",
+      # TRUE ~ NA_character_
       (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
-      is.na(value) & !is.na(lag(value)) & pre == lag(pre) & ceiling_reached == 1 ~ "onset_NA",
+      lag(ceiling) == 1 ~ "onset_NA",
       TRUE ~ NA_character_
     )
   ) %>% 
