@@ -2,6 +2,25 @@ suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 suppressMessages(library(runner))
 
+# special cases that this code needs to handle 
+
+# 1. examiner stops admin before
+# reaching stop rule, so streak_run never reaches 5 - we handle this by not
+# enabling NA_onset until streak run reaches 5. 
+
+# 2. examiner keeps administering after reaching stop rule, so streak_run is 6+.
+# In this case we "correct" the record of an examiner who kept administering
+# after the stop rule was reached. For example, an examiner who administers six
+# fails in a row and then stops, when the stop rule requires stopping after five
+# fails in a row.  Our correction is to change the 0 code in the 6th consecutive fail
+# to NA, which is what it should have been if the examiner correctly applied the
+# stop rule.
+
+
+# 3. examiner admins all items without ever activating stop rule (and streak_run
+# never meets that criterion). In this case handle this by not enabling
+# NA_onset until streak run reaches 5.
+
 urlRemote_path  <- "https://raw.github.com/"
 github_path <- "wpspublish/DSHerzberg-GENERAL/master/INPUT-FILES/"
 fileName_path   <- "recode-above-ceiling-input.csv"
@@ -39,9 +58,11 @@ recode_output1 <- input_tall %>%
   group_by(ID) %>%
   mutate(
     NA_status = case_when(
-      (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
       # WHAT IS THE DIFFERENCE BETWEEN NEXT TWO LINES, IN TERMS OF WHICH ROWS THEY CATCH?
-      # is.na(value) & !is.na(lag(value)) & pre == lag(pre) & ceiling_reached == 1 ~ "onset_NA",
+      # (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
+      (pre != lead(pre) | is.na(lead(pre))) & ceiling_reached == 1 ~ "offset_NA",
+
+      
       lag(ceiling) == 1 & pre == lag(pre) & ceiling_reached == 1~ "onset_NA",
       TRUE ~ NA_character_
     )
