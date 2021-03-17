@@ -40,7 +40,8 @@ input_tall <- input %>%
     streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
                            TRUE ~ NA_integer_),
     ceiling = case_when(
-      streak_val == 5 ~ 1,
+      # next line will NOT code 1 if ceiling is attained on last item of subtest
+      streak_val == 5 & lead(pre) == pre ~ 1,
       TRUE ~ 0)
   )
 
@@ -60,7 +61,7 @@ recode_output <- input_tall %>%
   group_by(ID) %>%
   mutate(
     NA_status = case_when(
-      (pre != lead(pre) | is.na(lead(pre))) & is.na(value) & ceiling_reached == 1 ~ "offset_NA",
+      (pre != lead(pre) | is.na(lead(pre))) & ceiling_reached == 1 ~ "offset_NA",
       lag(ceiling) == 1 & pre == lag(pre) & ceiling_reached == 1~ "onset_NA",
       TRUE ~ NA_character_
     )
