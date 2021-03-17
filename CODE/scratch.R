@@ -40,7 +40,8 @@ input_tall <- input %>%
     streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
                            TRUE ~ NA_integer_),
     ceiling = case_when(
-      streak_val == 5 ~ 1,
+      # next line will NOT code 1 if ceiling is attained on last item of subtest
+      streak_val == 5 & lead(pre) == pre ~ 1,
       TRUE ~ 0)
   )
 
@@ -84,45 +85,12 @@ recode_output1 <- input_tall %>%
   )
 
 
-
-temp1 <- recode_output %>% filter(
-  NA_status == "onset_NA" | lead(NA_status) == "onset_NA" | lag(NA_status) == "onset_NA"
-)
-
-temp2 <- recode_output %>% filter(
-  (
-    streak_val == 1 | is.na(streak_val) & lead(streak_val) == 1 |
-      is.na(streak_val) & lag(streak_val) == 1
-  ) &
-    (
-      NA_status == "onset_NA" |
-        lead(NA_status) == "onset_NA" | lag(NA_status) == "onset_NA"
-    )
-)
-
-temp3 <- recode_output %>%
-  mutate(laglead = case_when(
-    lag(NA_status) == "onset_NA" |
-      lead(NA_status) == "onset_NA" ~ 1,
-    TRUE ~ NA_real_
-  )) %>% 
+temp1 <- recode_output1 %>% 
   filter(
-    NA_status == "onset_NA" | laglead == 1
+    lag(pre) != pre | lead(pre) != pre
   )
 
-temp4 <- temp3 %>%
+temp2 <- recode_output1 %>% 
   filter(
-    (NA_status == "onset_NA" & lag(streak_val) == 1) | laglead == 1
-  )
-
-temp5 <- input_tall %>%
-  mutate(laglead = case_when(
-    lag(NA_status) == "onset_NA" |
-      lead(NA_status) == "onset_NA" ~ 1,
-    TRUE ~ NA_real_
-  ))
-
-temp6 <- input_tall %>% 
-  filter(
-    ceiling == 1 & streak_val != 5
+    lag(pre) != pre | lead(pre) != pre | lag(pre, 2) != pre | lead(pre, 2) != pre
   )
