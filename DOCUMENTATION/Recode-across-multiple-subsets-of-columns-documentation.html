@@ -181,8 +181,8 @@ pre code {
 <h6>RUNNABLE CODE</h6>
 <pre class="r"><code>library(tidyverse)
 
-urlRemote_path  &lt;- &quot;https://raw.githubusercontent.com/&quot;
-github_path &lt;- &quot;DSHerzberg/GENERAL/master/INPUT-FILES/&quot;
+urlRemote_path  &lt;- &quot;https://raw.github.com/&quot;
+github_path &lt;- &quot;wpspublish/DSHerzberg-GENERAL/master/INPUT-FILES/&quot;
 
 input_orig &lt;- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, 
@@ -213,9 +213,9 @@ miss_recode &lt;- col_subsets %&gt;%
   mutate(
     streak = runner::streak_run(ID),
     recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
-                             T ~ NA_character_),
+                             TRUE ~ NA_character_),
     recode_cols3 = case_when(lead(streak, 2) == 3 ~ lead(recode_cols1, 2),
-                             T ~ NA_character_)
+                             TRUE ~ NA_character_)
   ) %&gt;% 
   filter(streak == 1) %&gt;% 
   select(-streak)
@@ -229,19 +229,19 @@ blimp_recode &lt;- blimp_output %&gt;%
     recode_cols1,
     into = c(&quot;start1&quot;, &quot;end1&quot;),
     &quot;([[:alnum:]]{4}):(.*)&quot;,
-    remove = F
+    remove = FALSE
   ) %&gt;%
   extract(
     recode_cols2,
     into = c(&quot;start2&quot;, &quot;end2&quot;),
     &quot;([[:alnum:]]{4}):(.*)&quot;,
-    remove = F
+    remove = FALSE
   ) %&gt;%
   extract(
     recode_cols3,
     into = c(&quot;start3&quot;, &quot;end3&quot;),
     &quot;([[:alnum:]]{4}):(.*)&quot;,
-    remove = F
+    remove = FALSE
   ) %&gt;%
   group_by(ID) %&gt;%
   mutate(
@@ -253,14 +253,14 @@ blimp_recode &lt;- blimp_output %&gt;%
         end2 == item ~ &quot;recode2&quot;,
         start3 == item ~ &quot;recode3&quot;,
         end3 == item ~ &quot;recode3&quot;,
-        T ~ NA_character_
+        TRUE ~ NA_character_
       ),
     across(recode_run,
-           ~ runner::fill_run(., only_within = T)),
+           ~ runner::fill_run(., only_within = TRUE)),
     across(value,
            ~ case_when(
              recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_,
-             T ~ value
+             TRUE ~ value
            ))
   ) %&gt;%
   select(ID, item, value) %&gt;%
@@ -278,7 +278,7 @@ blimp_recode &lt;- blimp_output %&gt;%
         &quot;Recode-across-multiple-subsets-of-columns-dataOrig.csv&quot;)
 )))</code></pre>
 <p>Now we read the output file that BLIMP generates when it imputes the missing data from the original input. In this BLIMP output, there are no missing data.</p>
-<p>Note that in this demonstration, <code>BLIMP-impute-output.csv</code> has column names. Usually, the raw output from a BLIMP imputation lacks column names. In this case, we must use the argument <code>col_names = F</code> in the call of <code>read_csv()</code>; otherwise R will erroneously read the first row of data as column names. We can then name the columns appropriately by inserting <code>base::setNames(c(&quot;ID&quot;, &quot;item&quot;, &quot;response&quot;))</code> into the pipeline.</p>
+<p>Note that in this demonstration, <code>BLIMP-impute-output.csv</code> has column names. Usually, the raw output from a BLIMP imputation lacks column names. In this case, we must use the argument <code>col_names = FALSE</code> in the call of <code>read_csv()</code>; otherwise R will erroneously read the first row of data as column names. We can then name the columns appropriately by inserting <code>base::setNames(c(&quot;ID&quot;, &quot;item&quot;, &quot;response&quot;))</code> into the pipeline.</p>
 <p>Additionally, the BLIMP output is in tall (multi-level) format, in which items and responses are nested within ID numbers. We can use <code>tidyr::pivot_wider()</code> to transform the data object into wide format, drawing the item column names from the <code>item</code> column, and the imputed responses from the <code>response</code> column. We then rename all columns to match the naming scheme of the original input data, using <code>setNames(names(input_orig))</code>.</p>
 <pre class="r"><code>blimp_output &lt;- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, 
@@ -307,15 +307,15 @@ blimp_recode &lt;- blimp_output %&gt;%
 <p>We now execute a transformation by which cases with multiple missing column ranges have the labels for those ranges placed in new columns, as oppose to adjacent rows within the <code>recode_cols1</code> column. To do this, we use <code>mutate()</code> to create three new columns. <code>streak</code> is the output of <code>runner::streak_run(ID)</code>, which returns each row’s ordinal position within a sequence of consecutive instances of identical values of <code>ID</code>. In other words, <code>streak</code> is always 1 for non-duplicate values of <code>ID</code>. For duplicate <code>ID</code> rows, <code>streak</code> is 2 or 3, respectively, for the second or third consecutive occurrence of the same <code>ID</code> value.</p>
 <p><code>recode_cols2</code> and <code>recode_cols3</code> are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of <code>ID</code>, with appropriate range labels in <code>recode_cols1</code>, <code>recode_cols2</code>, and <code>recode_cols3</code>, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical <code>ID</code> rows, where the value of <code>streak</code> is 1.</p>
 <p>For cases with more than one all-missing range, the labels for the second and third ranges are now located in adjacent rows within the <code>recode_cols1</code> column. In the rows containing the second and third missing ranges, <code>streak</code> is 2 or 3, respectively. To copy the labels for these second and third missing ranges into <code>recode_cols2</code> and <code>recode_cols3</code>, we use <code>dplyr::case_when()</code>, which assigns values to a variable based on logical conditions.</p>
-<p>We identify the first row in a set of duplicate <code>ID</code> rows with the predicate <code>lead(streak) == 2</code>, where <code>lead()</code> refers to the next row moving downward. This captures only the first rows in sets of identical <code>ID</code> values, because by definition, only these rows are adjacent to rows where <code>streak</code> is 2. For these first rows in sets of identical <code>ID</code> values, then, <code>case_when()</code> assigns a value to <code>recode_cols2</code> that it plucks from <code>recode_cols1</code> in the next row, where <code>streak</code> is 2 (using the formula <code>~ lead(recode_cols1)</code>. This value is the label for the second all-missing range for that case. For any row that is <em>not</em> the first row in a set of identical <code>ID</code> values, <code>case_when()</code> returns <code>NA</code>, via the argument <code>T ~ NA_character_</code>, which defines the “else” logical condition.</p>
+<p>We identify the first row in a set of duplicate <code>ID</code> rows with the predicate <code>lead(streak) == 2</code>, where <code>lead()</code> refers to the next row moving downward. This captures only the first rows in sets of identical <code>ID</code> values, because by definition, only these rows are adjacent to rows where <code>streak</code> is 2. For these first rows in sets of identical <code>ID</code> values, then, <code>case_when()</code> assigns a value to <code>recode_cols2</code> that it plucks from <code>recode_cols1</code> in the next row, where <code>streak</code> is 2 (using the formula <code>~ lead(recode_cols1)</code>. This value is the label for the second all-missing range for that case. For any row that is <em>not</em> the first row in a set of identical <code>ID</code> values, <code>case_when()</code> returns <code>NA</code>, via the argument <code>TRUE ~ NA_character_</code>, which defines the “else” logical condition.</p>
 <p>We assign values for <code>recode_cols3</code> with a similar procedure, except here we look ahead <em>two</em> rows, by passing the argument <code>2</code> to <code>lead()</code>. Two rows ahead is where we will find the label for any third set of all-missing columns (and where the value of <code>streak</code> is 3).</p>
 <p>To finish the procedure, we drop the superfluous duplicate <code>ID</code> rows by calling <code>filter(streak == 1)</code>. We no longer need rows where <code>streak</code> is 2 or 3, because those rows contain column range labels are now registered in <code>recode_cols2</code> and <code>recode_cols3</code>. The resulting data object <code>miss_recode</code> contains a single row for each case that requires recoding of column ranges.</p>
 <pre class="r"><code>  mutate(
     streak = runner::streak_run(ID),
     recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
-                             T ~ NA_character_),
+                             TRUE ~ NA_character_),
     recode_cols3 = case_when(lead(streak, 2) == 3 ~ lead(recode_cols1, 2),
-                             T ~ NA_character_)
+                             TRUE ~ NA_character_)
   ) %&gt;% 
   filter(streak == 1) %&gt;% 
   select(-streak)</code></pre>
@@ -357,13 +357,13 @@ blimp_recode &lt;- blimp_output %&gt;%
   pivot_longer(cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3),
                names_to = c(&quot;item&quot;)) %&gt;%</code></pre>
 <p>We now use <code>tidyr::extract()</code> to create new columns that will hold markers delineating the ranges of rows in the <code>value</code> column that need to be recoded. Here we examine only the code segment that operates on <code>recode_cols1</code>; an analogous procedure is used on <code>recode_cols2</code> and <code>recode_cols3</code>.</p>
-<p><code>extract()</code> splits strings contained in one column and places each part into a new column. The first argument names <code>recode_cols1</code> as the source column, and the second argument (<code>into =</code>) names <code>start1</code> and <code>end1</code> as the two destination columns. The third argument <code>&quot;([[:alnum:]]{4}):(.*)&quot;</code> is a regular expression that specifies how and where to split the value contained in <code>recode_cols1</code> into two strings. For example, we can split the range label <code>&quot;i001:i050&quot;</code> into <code>i001</code> (the first item number in the range) and <code>i050</code> (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to <code>start1</code> (<code>([[:alnum:]]{4})</code>) and <code>end1</code> (<code>(.*)</code>). Characters outside the parentheses (e.g., <code>:</code>) are dropped. The final argument <code>remove = F</code> indicates that the source column will be retained in the output.</p>
+<p><code>extract()</code> splits strings contained in one column and places each part into a new column. The first argument names <code>recode_cols1</code> as the source column, and the second argument (<code>into =</code>) names <code>start1</code> and <code>end1</code> as the two destination columns. The third argument <code>&quot;([[:alnum:]]{4}):(.*)&quot;</code> is a regular expression that specifies how and where to split the value contained in <code>recode_cols1</code> into two strings. For example, we can split the range label <code>&quot;i001:i050&quot;</code> into <code>i001</code> (the first item number in the range) and <code>i050</code> (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to <code>start1</code> (<code>([[:alnum:]]{4})</code>) and <code>end1</code> (<code>(.*)</code>). Characters outside the parentheses (e.g., <code>:</code>) are dropped. The final argument <code>remove = FALSE</code> indicates that the source column will be retained in the output.</p>
 <p>This <code>extract()</code> sequence is repeated for <code>recode_cols2</code> and <code>recode_cols3</code>, creating <code>start</code> and <code>end</code> columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.</p>
 <pre class="r"><code>  extract(
     recode_cols1,
     into = c(&quot;start1&quot;, &quot;end1&quot;),
     &quot;([[:alnum:]]{4}):(.*)&quot;,
-    remove = F
+    remove = FALSE
   ) %&gt;%</code></pre>
 <p>In the next sequence, we use the <code>runner</code> package to label rows (items) for recoding. Because we need <code>fill_run()</code> to operate only within values of <code>ID</code> (that is, within single cases), we call <code>dplyr::group_by()</code> to group the data object by <code>ID</code>.</p>
 <p>We then invoke <code>mutate()</code> to create a new column <code>recode_run</code> to hold the start and end points for the item ranges to be recoded. We assign values using <code>case_when()</code>, marking the start item for first range to be recoded with the expression <code>start1 == item ~ &quot;recode1&quot;</code>. When evaluated, this expression finds the row that represents the item named in <code>start1</code>; that is, the <em>first</em> item in the first item range to be recoded. In this row, it assigns the value <code>recode1</code> to the column <code>recode_run</code>. With the expression <code>end1 == item ~ &quot;recode1&quot;</code>, <code>case_when()</code> assigns <code>recode1</code> to mark the row containing the <em>last</em> item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (<code>ID</code>) are now marked, within the <code>recode_run</code> column.</p>
@@ -377,16 +377,16 @@ blimp_recode &lt;- blimp_output %&gt;%
         end2 == item ~ &quot;recode2&quot;,
         start3 == item ~ &quot;recode3&quot;,
         end3 == item ~ &quot;recode3&quot;,
-        T ~ NA_character_
+        TRUE ~ NA_character_
       ),</code></pre>
-<p>We can use <code>runner::fill_run()</code> to fill in values between the labeled start and end rows. We use <code>across()</code> to address only the <code>recode_run</code> column, and call <code>fill_run()</code> with the formula shorthand <code>~</code>. We provide the <code>.</code> shorthand to specify <code>recode_run</code>, and pass the argument <code>only_within = T</code> to limit the filling of values to only those rows <em>between</em> the start and end points of item ranges to be recoded. As a result, each row in the first item range is now labeled with <code>recode1</code>, and similarly for the second and third item ranges.</p>
+<p>We can use <code>runner::fill_run()</code> to fill in values between the labeled start and end rows. We use <code>across()</code> to address only the <code>recode_run</code> column, and call <code>fill_run()</code> with the formula shorthand <code>~</code>. We provide the <code>.</code> shorthand to specify <code>recode_run</code>, and pass the argument <code>only_within = TRUE</code> to limit the filling of values to only those rows <em>between</em> the start and end points of item ranges to be recoded. As a result, each row in the first item range is now labeled with <code>recode1</code>, and similarly for the second and third item ranges.</p>
 <pre class="r"><code>    across(recode_run,
-           ~ runner::fill_run(., only_within = T)),</code></pre>
-<p>We use <code>case_when()</code> to recode the column <code>value</code>, recoding only the labeled rows to <code>NA</code>. The expression <code>recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_</code> specifies that whenever the value of <code>recode_run</code> is one of three elements <code>%in%</code> a character vector, the value of <code>value</code> will be changed to <code>NA</code>. Passing the “else” argument <code>T ~ value</code> leaves all other rows within <code>value</code> unchanged.</p>
+           ~ runner::fill_run(., only_within = TRUE)),</code></pre>
+<p>We use <code>case_when()</code> to recode the column <code>value</code>, recoding only the labeled rows to <code>NA</code>. The expression <code>recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_</code> specifies that whenever the value of <code>recode_run</code> is one of three elements <code>%in%</code> a character vector, the value of <code>value</code> will be changed to <code>NA</code>. Passing the “else” argument <code>TRUE ~ value</code> leaves all other rows within <code>value</code> unchanged.</p>
 <pre class="r"><code>    across(value,
            ~ case_when(
              recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_,
-             T ~ value
+             TRUE ~ value
            ))
   ) %&gt;%</code></pre>
 <p>Finishing up, we use <code>select()</code> to drop all columns except those needed to recreate the original wide format, in which we had only the ID and item columns. We <code>pivot_wider()</code> the data object back to wide format, drawing the item column names from the <code>item</code> column, and the item row values from the <code>value</code> column.</p>

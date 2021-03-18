@@ -33,9 +33,9 @@ miss_recode <- col_subsets %>%
    mutate(
     streak = runner::streak_run(ID),
      recode_cols2 = case_when(lead(streak) == 2 ~ lead(recode_cols1),
-                             T ~ NA_character_),
+                             TRUE ~ NA_character_),
     recode_cols3 = case_when(lead(streak, 2) == 3 ~ lead(recode_cols1, 2),
-                             T ~ NA_character_)
+                             TRUE ~ NA_character_)
   ) %>% 
   filter(streak == 1) %>% 
   select(-streak) 
@@ -51,19 +51,19 @@ blimp_recode <- blimp_output %>%
     recode_cols1,
     into = c("start1", "end1"),
     "([[:alnum:]]{4}):(.*)",
-    remove = F
+    remove = FALSE
   ) %>%
   extract(
     recode_cols2,
     into = c("start2", "end2"),
     "([[:alnum:]]{4}):(.*)",
-    remove = F
+    remove = FALSE
   ) %>%
   extract(
     recode_cols3,
     into = c("start3", "end3"),
     "([[:alnum:]]{4}):(.*)",
-    remove = F
+    remove = FALSE
   ) %>%
   group_by(ID) %>%
   mutate(
@@ -75,14 +75,14 @@ blimp_recode <- blimp_output %>%
         end2 == item ~ "recode2",
         start3 == item ~ "recode3",
         end3 == item ~ "recode3",
-        T ~ NA_character_
+        TRUE ~ NA_character_
       ),
      across(recode_run,
-           ~ runner::fill_run(., only_within = T)),
+           ~ runner::fill_run(., only_within = TRUE)),
      across(value,
            ~ case_when(
              recode_run %in% c("recode1", "recode2", "recode3") ~ NA_real_,
-             T ~ value
+             TRUE ~ value
            ))
   ) %>%
   select(ID, item, value) %>%
