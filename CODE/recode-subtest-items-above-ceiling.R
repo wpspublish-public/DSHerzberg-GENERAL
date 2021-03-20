@@ -29,7 +29,7 @@ input <- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, fileName_path)
 )))
 
-input_tall <- input %>%
+input_long <- input %>%
   pivot_longer(
     cols = -ID,
     names_to = c("pre", "num"),
@@ -45,7 +45,7 @@ input_tall <- input %>%
       TRUE ~ 0)
   )
 
-ceiling <-  input_tall %>% 
+ceiling <-  input_long %>% 
   group_by(ID, pre) %>% 
   summarise(ceiling_count = sum(ceiling)) %>% 
   mutate(ceiling_reached = case_when(
@@ -56,7 +56,7 @@ ceiling <-  input_tall %>%
 
 # NEXT: evaluate whether simpler predicates could do the job for coding onset and offset_NA
 
-recode_output <- input_tall %>% 
+recode_output <- input_long %>% 
   left_join(ceiling, by = c("ID", "pre")) %>%
   group_by(ID) %>%
   mutate(
