@@ -172,7 +172,7 @@ pre code {
 <h4>Overview</h4>
 <p>This a method for recoding items within subtests, once a ceiling (or stop rule) has been satisfied. In its current form, the method applies a single stop-rule across all subtests.</p>
 <p>Consider a test of cognitive ability, with subtest items ordered by increasing difficulty. With a stop rule of five, the examiner stops administering items after failure on five consecutive items. In the raw data file, data are missing for all items above the ceiling item. However, the ceiling rule requires that counting these items as failed, meaning they must be recoded from <code>NA</code> to <code>0</code>.</p>
-<p>The central operation here is counting consecutive <code>0</code> responses in the data, and recoding only items above the level where the ceiling rule is reached. To accomplish this, we first pivot the data from wide to long format, such that consecutive items appear as consecutive rows, instead of consecutive columns. This facilitates more concise code by allowing row-wise application of key <code>dplyr</code> and <code>tidyr</code> functions.</p>
+<p>The central operation here is counting consecutive <code>0</code> responses in the data, and recoding only items after the stop rule is satisfied. To accomplish this, we first pivot the data from wide to long format, such that consecutive items appear as consecutive rows, instead of consecutive columns. This facilitates more concise code by allowing row-wise application of key <code>dplyr</code> and <code>tidyr</code> functions.</p>
 <div id="runnable-code" class="section level6">
 <h6>RUNNABLE CODE</h6>
 <pre class="r"><code>suppressMessages(library(here))
@@ -195,16 +195,16 @@ input_long &lt;- input %&gt;%
   )  %&gt;%
   group_by(ID, pre) %&gt;%
   mutate(
-    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
+    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = FALSE),
                            TRUE ~ NA_integer_),
     ceiling = case_when(
       streak_val == 5 &amp; lead(pre) == pre ~ 1,
       TRUE ~ 0)
   )
 
-ceiling &lt;-  input_long %&gt;% 
+ceiling &lt;- input_long %&gt;% 
   group_by(ID, pre) %&gt;% 
-  summarise(ceiling_count = sum(ceiling)) %&gt;% 
+  summarize(ceiling_count = sum(ceiling)) %&gt;% 
   mutate(ceiling_reached = case_when(
     ceiling_count &gt;= 1 ~ 1,
     TRUE ~ NA_real_
@@ -258,8 +258,8 @@ fileName_path   &lt;- &quot;recode-above-ceiling-input.csv&quot;
 input &lt;- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, fileName_path)
 )))</code></pre>
-<p>We then <code>pivot_longer()</code> to transform the <code>input</code> data object into the tall (multilevel) format. We use the <code>cols = -ID</code> argument to exclude the <code>ID</code> column from the pivot, so that in the resulting data object, item-reponse pairs are nested within each value of <code>ID</code>. <code>pivot_longer()</code> adds duplicate rows for each value of <code>ID</code>, such that in the transformed data object, there are <em>n</em> rows containing each value of <code>ID</code>, where <em>n</em> is equal to the number of item columns in the original wide-format <code>input</code> object.</p>
-<p>As part of this transformation, <code>pivot_longer()</code> splits the names of the orginal item columns into two parts, and stores these parts in two columns in the long data object. The argument <code>names_to = c(&quot;pre&quot;, &quot;num&quot;)</code> gives the names of the two destination columns, and the argument <code>names_sep = 3</code> specifies that the original names will be split after the third character. The argument <code>values_to =</code> is omitted here, meaning the cell values from the original item columns will be stored in a destination column with the default name of <code>value</code>.</p>
+<p>We then <code>pivot_longer()</code> to transform the <code>input</code> data object into the long (multilevel) format. We use the <code>cols = -ID</code> argument to exclude the <code>ID</code> column from the pivot, so that in the transformed data object, item-reponse pairs are nested within each value of <code>ID</code>. <code>pivot_longer()</code> adds duplicate rows for each value of <code>ID</code>, creating <em>n</em> rows for each <code>ID</code>, where <em>n</em> is equal to the number of item columns in the original wide-format <code>input</code> object.</p>
+<p>As part of this transformation, <code>pivot_longer()</code> splits the names of the orginal item columns into two parts, and stores these parts in two columns in the long data object. The argument <code>names_to = c(&quot;pre&quot;, &quot;num&quot;)</code> gives the names of the two destination columns, and the argument <code>names_sep = 3</code> specifies that the original names will be split after the third character. <a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
 <pre class="r"><code>input_long &lt;- input %&gt;%
   pivot_longer(
     cols = -ID,
@@ -282,9 +282,32 @@ input &lt;- suppressMessages(read_csv(url(
 201016 iws   4         1
 201016 iws   5         1
 201016 iws   6         1</code></pre>
-<p>Now we initialize a character vector <code>col_subsets</code>, whose elements are strings holding the ranges of items for the seven item subsets that may need to be recoded for certain cases.</p>
+<p>We can use functions from the <code>runner</code> package to count and process streaks of consecutive identical responses. In applying these functions, we need to account for several special situations that may occur in the input data:</p>
+<ol style="list-style-type: decimal">
+<li>The examiner discontinues administration <em>before</em> the stop rule is satisfied. For example, the examiner stops administering a subtest after four consecutive scores of <code>0</code>, even though the stop rule requires five consecutive <code>0</code> scores before stopping.</li>
+<li>The examiner continues administration <em>after</em> the stop rule is satisfied. For example, the examiner continues administration until six consecutive <code>0</code> scores are recorded, even though the stop rule requires discontinuation after five consecutive <code>0</code> scores.</li>
+<li>The examiner administers all items in a subtest, without ever encountering a streak of consecutive <code>0</code> scores long enough to trigger the stop rule.</li>
+<li>The examiner satisfies the stop rule on the <em>last item</em> of the subtest. For example, the stop rule is five, and the last item of the subtest is the fifth consecutive <code>0</code> score (and there were no previous <code>0</code> streaks longer than four).</li>
+</ol>
+<p>When applying <code>runner</code> functions, we need R to count streaks <em>within</em> the groups of rows that constitute all the items from each subtest, and to restart these counts when moving from one group of subtest rows to the next. We accomplish this by calling <code>group_by(ID, pre)</code>, thus creating groups of rows for each subtest (identified by values of <code>pre</code>), nested within each person (identified by values of <code>ID</code>).</p>
+<p>We then use <code>dplyr::mutate()</code> to create two new variables, calling <code>dplyr::case_when()</code> to assign values to these variables based on logical predicates. The <code>streak_val</code> column holds the length of the current streak of consecutive <code>0</code> scores (designated by the predicate <code>value == 0</code>). When that predicate returns <code>TRUE</code>, <code>case_when()</code> applies <code>runner::streak_run</code> to <code>value</code>. The resulting value of <code>streak_run</code> is the number of consecutive <code>0</code> scores at that row. The argument <code>na_rm = FALSE</code> permits <code>streak_run</code> to include <code>NA</code> values in the count. <code>TRUE ~ NA_integer_</code> defines the “else” condition of this predicate, specifying that when <code>value != 0</code>, the value of <code>streak_run</code> will be <code>NA</code>.</p>
+<p><code>ceiling</code> marks the row where the streak of consecutive <code>0</code> scores reaches the value designated by the stop rule (i.e., the row where <code>streak_val == 5</code>). We add the additional condition <code>lead(pre) == pre</code> so that the combined predicate will only return <code>TRUE</code> for rows that <em>ARE NOT</em> the last item of a subtest. For these “last item” rows, the value of <code>pre</code> changes on the next row, because that is the first row of a new subtest. Under this logical condition, <code>case_when()</code> codes <code>1</code> for rows where the streak of consecutive <code>0</code> scores reaches five, except if that row is the last item of a subtest. This ensures that special case 4, noted above, will be handled correctly.</p>
 <pre class="r"><code>  group_by(ID, pre) %&gt;%
-  mutate(</code></pre>
+  mutate(
+    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = FALSE),
+                           TRUE ~ NA_integer_),
+    ceiling = case_when(
+      streak_val == 5 &amp; lead(pre) == pre ~ 1,
+      TRUE ~ 0)
+  )</code></pre>
+<p>The next step of the process is to mark those subtests, across persons, where the stop rule is satisfied. We store these marks in a data frame <code>celing</code>, which we derive by first grouping <code>input_long</code> by <code>ID</code> and <code>pre</code> (subtests within persons). We then call <code>dplyr::summarize()</code> on the grouped data,</p>
+<pre class="r"><code>ceiling &lt;- input_long %&gt;% 
+  group_by(ID, pre) %&gt;% 
+  summarize(ceiling_count = sum(ceiling)) %&gt;% </code></pre>
+</div>
+</div>
+<div id="obsolete-code-below" class="section level4">
+<h4>OBSOLETE CODE BELOW</h4>
 <p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need column subsets recoded, with up to three subsets identified per case. We use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the column ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current-iteration element of <code>col_subsets</code> (e.g., <code>&quot;i001:i050&quot;</code>) into the code.</p>
 <p>Central to this operation is <code>dplyr::filter()</code> which finds cases (rows) that meet logical criteria. To pass the column ranges into <code>filter()</code>, we use the helper <code>dplyr::across()</code>, which specifies a set of columns to be tested against a logical predicate. Within <code>across</code>, we need R to evaluate the column range <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string. We can unquote the string using the <code>!!</code> operator, and then transform it into an expression with <code>rlang::parse_expr()</code>. We then specify the logical predicate <code>~ is.na(.)</code>, by which <code>filter()</code> will pick rows. <code>filter()</code> thereby returns only rows that are missing <code>NA</code> on <em>all</em> columns within the range currently specified by <code>.x</code>, which is passed into <code>is.na()</code> with the single dot <code>.</code> shorthand.</p>
 <p>We then use <code>dplyr::mutate()</code> to create a new variable <code>recode_cols1</code> that holds the label of the first column range that is all missing for the filtered rows. Here, <code>mutate()</code> can operate on <code>.x</code> with out any NSE transformations, because the value of <code>.x</code> is a string, which is the correct variable type to represent the column range in <code>recode_cols1</code>. We use <code>dplyr::select()</code> to keep only two columns going forward.</p>
@@ -295,9 +318,9 @@ input &lt;- suppressMessages(read_csv(url(
       TRUE ~ 0)
   )
 
-ceiling &lt;-  input_long %&gt;% 
+ceiling &lt;- input_long %&gt;% 
   group_by(ID, pre) %&gt;% 
-  summarise(ceiling_count = sum(ceiling)) %&gt;% 
+  summarize(ceiling_count = sum(ceiling)) %&gt;% 
   mutate(ceiling_reached = case_when(</code></pre>
 <p>We now execute a transformation by which cases with multiple missing column ranges have the labels for those ranges placed in new columns, as oppose to adjacent rows within the <code>recode_cols1</code> column. To do this, we use <code>mutate()</code> to create three new columns. <code>streak</code> is the output of <code>runner::streak_run(ID)</code>, which returns each row’s ordinal position within a sequence of consecutive instances of identical values of <code>ID</code>. In other words, <code>streak</code> is always 1 for non-duplicate values of <code>ID</code>. For duplicate <code>ID</code> rows, <code>streak</code> is 2 or 3, respectively, for the second or third consecutive occurrence of the same <code>ID</code> value.</p>
 <p><code>recode_cols2</code> and <code>recode_cols3</code> are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of <code>ID</code>, with appropriate range labels in <code>recode_cols1</code>, <code>recode_cols2</code>, and <code>recode_cols3</code>, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical <code>ID</code> rows, where the value of <code>streak</code> is 1.</p>
@@ -364,6 +387,11 @@ NA</code></pre>
 <p>The following table illustrates how the recoding process plays out for case <code>230010</code>, which is missing data both on subtests that the examinee attempted (Type 1), and on all items of subtests <em>NOT</em> attempted (Type 2). Specifically, <code>230010</code> is Type 2 missing on the item range <code>i051:i084</code>.</p>
 <p>The table shows items <code>i051</code> to <code>i060</code> for case <code>230010</code>, at three stages of the process. In the original input data <code>input_orig</code>, the item range is all <code>NA</code>, because the examinee did not attempt any items in this range. In the unrecoded <code>blimp_output</code>, the item range is all <code>1</code> because BLIMP imputed the missing data. In the recoded <code>blimp_recode</code>, the item range has been recoded back to its correct Type 2 state of <code>NA</code>. This recoding operation leaves the imputations in place for any Type 1 missing data.</p>
 </div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>The required argument <code>values_to =</code> is omitted here, meaning it will pass its default specification of “value”. Thus, the cell values from the original item columns will be stored in a destination column named <code>value</code>.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
 </div>
 
 
