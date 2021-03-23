@@ -45,7 +45,7 @@ input_long <- input %>%
       TRUE ~ 0)
   )
 
-ceiling <- input_long %>% 
+ceiling_subtests <- input_long %>% 
   group_by(ID, pre) %>% 
   summarize(ceiling_count = sum(ceiling)) %>% 
   mutate(ceiling_reached = case_when(
@@ -55,7 +55,7 @@ ceiling <- input_long %>%
   select(-ceiling_count)
 
 recode_output <- input_long %>% 
-  left_join(ceiling, by = c("ID", "pre")) %>%
+  left_join(ceiling_subtests, by = c("ID", "pre")) %>%
   group_by(ID) %>%
   mutate(
     NA_status = case_when(
@@ -134,11 +134,27 @@ We then use `dplyr::mutate()` to create two new variables, calling `dplyr::case_
 
 ```{r script, echo = 19:27, eval = FALSE}
 ```
-The next step of the process is to mark those subtests, across persons, where the stop rule is satisfied. We store these marks in a data frame `celing`, which we derive by first grouping `input_long` by `ID` and `pre` (subtests within persons). We then call `dplyr::summarize()` on the grouped data, 
+The next step of the process is to identify those subtests, across persons, where the stop rule is satisfied. We store this labeling of subtests in a new data frame (`ceiling_subtests`), which we derive by first grouping `input_long` by `ID` and `pre` (subtests within persons). We then call `dplyr::summarize()` on the grouped data, We calculate the new summary variable `ceiling_count`. We `sum()` the `1` codes on `ceiling`, thereby ensuring that `ceiling_count` will be coded `0` within subtests where the stop rule was _NOT_ satisfied. Any other value on `ceiling_count` indicates that the stop rule was satisfied for that subtest.
 ```{r script, echo = 28:30, eval = FALSE}
 ```
+`ceiling_count` encodes the status of whether the stop rule has been satisfied within a subtest, in such a way that it can be tested with a predicate. As before, we use `mutate()` and `case_when()` to define a new variable `ceiling_reached`, which is coded `1` only when `ceiling_count >= 1`.
+```{r script, echo = 31:35, eval = FALSE}
+```
+We use `dplyr::select()` to drop the `ceiling_code` column, which leaves the summary table `ceiling_subtests` with the following structure:
 
-
+```
+    ID pre   ceiling_reached
+201016 seg                 1
+201016 ssl                 1
+201016 sub                NA
+201016 wom                 1
+201017 bln                 1
+201017 del                NA
+201017 gea                NA
+201017 iwr                 1
+201017 iws                 1
+201017 lem                 1
+```
 
 #### OBSOLETE CODE BELOW
 

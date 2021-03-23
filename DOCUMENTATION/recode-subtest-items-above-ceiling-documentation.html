@@ -202,7 +202,7 @@ input_long &lt;- input %&gt;%
       TRUE ~ 0)
   )
 
-ceiling &lt;- input_long %&gt;% 
+ceiling_subtests &lt;- input_long %&gt;% 
   group_by(ID, pre) %&gt;% 
   summarize(ceiling_count = sum(ceiling)) %&gt;% 
   mutate(ceiling_reached = case_when(
@@ -212,7 +212,7 @@ ceiling &lt;- input_long %&gt;%
   select(-ceiling_count)
 
 recode_output &lt;- input_long %&gt;% 
-  left_join(ceiling, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%
+  left_join(ceiling_subtests, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%
   group_by(ID) %&gt;%
   mutate(
     NA_status = case_when(
@@ -300,10 +300,28 @@ input &lt;- suppressMessages(read_csv(url(
       streak_val == 5 &amp; lead(pre) == pre ~ 1,
       TRUE ~ 0)
   )</code></pre>
-<p>The next step of the process is to mark those subtests, across persons, where the stop rule is satisfied. We store these marks in a data frame <code>celing</code>, which we derive by first grouping <code>input_long</code> by <code>ID</code> and <code>pre</code> (subtests within persons). We then call <code>dplyr::summarize()</code> on the grouped data,</p>
-<pre class="r"><code>ceiling &lt;- input_long %&gt;% 
+<p>The next step of the process is to identify those subtests, across persons, where the stop rule is satisfied. We store this labeling of subtests in a new data frame (<code>ceiling_subtests</code>), which we derive by first grouping <code>input_long</code> by <code>ID</code> and <code>pre</code> (subtests within persons). We then call <code>dplyr::summarize()</code> on the grouped data, We calculate the new summary variable <code>ceiling_count</code>. We <code>sum()</code> the <code>1</code> codes on <code>ceiling</code>, thereby ensuring that <code>ceiling_count</code> will be coded <code>0</code> within subtests where the stop rule was <em>NOT</em> satisfied. Any other value on <code>ceiling_count</code> indicates that the stop rule was satisfied for that subtest.</p>
+<pre class="r"><code>ceiling_subtests &lt;- input_long %&gt;% 
   group_by(ID, pre) %&gt;% 
   summarize(ceiling_count = sum(ceiling)) %&gt;% </code></pre>
+<p><code>ceiling_count</code> encodes the status of whether the stop rule has been satisfied within a subtest, in such a way that it can be tested with a predicate. As before, we use <code>mutate()</code> and <code>case_when()</code> to define a new variable <code>ceiling_reached</code>, which is coded <code>1</code> only when <code>ceiling_count &gt;= 1</code>.</p>
+<pre class="r"><code>  mutate(ceiling_reached = case_when(
+    ceiling_count &gt;= 1 ~ 1,
+    TRUE ~ NA_real_
+  )) %&gt;% 
+  select(-ceiling_count)</code></pre>
+<p>We use <code>dplyr::select()</code> to drop the <code>ceiling_code</code> column, which leaves the summary table <code>ceiling_subtests</code> with the following structure:</p>
+<pre><code>    ID pre   ceiling_reached
+201016 seg                 1
+201016 ssl                 1
+201016 sub                NA
+201016 wom                 1
+201017 bln                 1
+201017 del                NA
+201017 gea                NA
+201017 iwr                 1
+201017 iws                 1
+201017 lem                 1</code></pre>
 </div>
 </div>
 <div id="obsolete-code-below" class="section level4">
@@ -318,7 +336,7 @@ input &lt;- suppressMessages(read_csv(url(
       TRUE ~ 0)
   )
 
-ceiling &lt;- input_long %&gt;% 
+ceiling_subtests &lt;- input_long %&gt;% 
   group_by(ID, pre) %&gt;% 
   summarize(ceiling_count = sum(ceiling)) %&gt;% 
   mutate(ceiling_reached = case_when(</code></pre>
@@ -334,7 +352,7 @@ ceiling &lt;- input_long %&gt;%
   select(-ceiling_count)
 
 recode_output &lt;- input_long %&gt;% 
-  left_join(ceiling, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%
+  left_join(ceiling_subtests, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%
   group_by(ID) %&gt;%
   mutate(</code></pre>
 <p>The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use <code>dplyr::left_join()</code> to bind the <code>blimp_output</code> and <code>miss_recode</code> data frames, passing <code>by = &quot;ID&quot;</code> to align the columns by <code>ID</code>. We <code>relocate()</code> columns to obtain a desired sequence.</p>
