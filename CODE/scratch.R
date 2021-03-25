@@ -13,3 +13,10 @@ input <- suppressMessages(
 blocks <- block(input, n.tr = 3, id.vars = "ID", 
              block.vars = c("age", "clinical"))
 
+block_df <- blocks[["blocks"]][["1"]]
+
+assign <- assignment(blocks, seed = 24)
+
+df <- block2seqblock(blocks, assign, input)
+
+df1 <- df[["x"]]
