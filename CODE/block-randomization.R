@@ -37,8 +37,10 @@ output_df <- output_list[["x"]] %>%
   rename(coder = Tr) %>% 
   relocate(coder, .after = "ID")
 
+# NOT SURE IF THIS BUCKET STRUCTURE IS NEEDED AFTER ALL?
+
 # create a new df that has one row per each unique crossing (present in the
-# data) of coder x age_year x clinical. These are stratiication "buckets". Label
+# data) of coder x age_year x clinical. These are stratification "buckets". Label
 # the buckets with sequential integers.
 strat_buckets <- output_df %>% 
   select(-ID) %>% 
@@ -47,15 +49,13 @@ strat_buckets <- output_df %>%
   ungroup %>% 
   mutate(bucket = row_number())
 
-# create a new df holding ~10% of the original input cases, with this subsample
+# create a new df holding 10% of the original input cases, with this subsample
 # randomly selected from within the stratification bucket structure. Label these
 # cases as interrater cases, and keep only ID and the interrater label column
 set.seed(12345)
 input_interrater <- output_df %>% 
   left_join(strat_buckets, by = c("coder", "age_years", "clinical")) %>% 
-  arrange(bucket) %>% 
-  group_by(bucket) %>% 
-  slice_sample(prop = .15, replace = FALSE) %>% 
+  slice_sample(prop = .1, weight_by = clinical, replace = FALSE) %>%
   mutate(interrater = 1) %>% 
   ungroup() %>% 
   select(ID, interrater)
