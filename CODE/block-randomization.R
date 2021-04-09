@@ -37,25 +37,13 @@ output_df <- output_list[["x"]] %>%
   rename(coder = Tr) %>% 
   relocate(coder, .after = "ID")
 
-# NOT SURE IF THIS BUCKET STRUCTURE IS NEEDED AFTER ALL?
 
-# create a new df that has one row per each unique crossing (present in the
-# data) of coder x age_year x clinical. These are stratification "buckets". Label
-# the buckets with sequential integers.
-strat_buckets <- output_df %>% 
-  select(-ID) %>% 
-  group_by(coder, age_years, clinical) %>% 
-  count() %>%
-  ungroup %>% 
-  mutate(bucket = row_number())
-
-# create a new df holding 10% of the original input cases, with this subsample
-# randomly selected from within the stratification bucket structure. Label these
-# cases as interrater cases, and keep only ID and the interrater label column
+# create a new df holding randomly selected 10% of the original input cases.
+# Label these cases as interrater cases, and keep only ID and the interrater
+# label column
 set.seed(12345)
 input_interrater <- output_df %>% 
-  left_join(strat_buckets, by = c("coder", "age_years", "clinical")) %>% 
-  slice_sample(prop = .1, weight_by = clinical, replace = FALSE) %>%
+  slice_sample(prop = .1, weight_by = clinical) %>%
   mutate(interrater = 1) %>% 
   ungroup() %>% 
   select(ID, interrater)
@@ -76,21 +64,14 @@ write_csv(output_df,
           here("OUTPUT-FILES/osel-wps-r1-coder-assignments.csv"),
           na = "")
 
-# Write assignments by coder into tabbed, xlsx workbook
-map2(
-  c("coder1", "coder2", "coder3"),
-  c(FALSE, TRUE, TRUE),
-  ~
-    write.xlsx(
-      coder_df_list[[.x]],
-      here("OUTPUT-FILES/osel-wps-r1-coder-assignments.xlsx"),
-      sheetName = .x,
-      row.names = FALSE,
-      append = .y
-    )
-)
+# Write assignments by coder into tabbed, xlsx workbook. To create named tabs,
+# supply writexl::write_xlsx() with a named list of dfs for each tab, tab names
+# will be the names of the list elements
+write_xlsx(coder_df_list,
+           here("OUTPUT-FILES/osel-wps-r1-coder-assignments_writexl.xlsx"))
 
-# create a summary table showing n of cases assigned to each bucket
+# create a summary table showing n of cases assigned to each stratification
+# bucket
 output_summ <- output_df %>% 
   group_by(coder) %>% 
   count(age_years, clinical) %>% 
