@@ -9,11 +9,11 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 #### Overview
 
-This method derives from random assignment procedures used in clinical trials. Input cases are categorized into blocks defined by the crossing of person characteristics, such as age and clinical status. Cases are then randomly plucked from these blocks to be assigned to treatment conditions.
+This method derives from random assignment procedures used in clinical trials. Input cases are categorized into blocks defined by the crossing of person characteristics, such as age and clinical status. Cases are then randomly plucked from these blocks to be assigned to treatment conditions (hereafter referred to as "output groups").
 
-In WPS R&D, this method was used with the OSEL project in 2021. Here, the task was to randomly assign speech transcripts to three coders. Blocking was employed to ensure that the age and clinical status distributions of transcripts were similar accross coders. The current demonstration uses the OSEL case ID data as input.
+In WPS R&D, this method was used in 2021 on the OSEL project. Here, the task was to randomly assign speech transcripts to three coders. Blocking was employed to ensure that the age and clinical status distributions of transcripts were similar across coders. The current demonstration uses the OSEL case ID data as input.
 
-The core functionality of this method is provided by the R package `blockTools`. This library enables the creation of blocks based on mulitple covariates, and the random assignment of blocked cases to other grouping structures (e.g., treatment conditions, coders, etc.).
+The core functionality of this method is provided by the R package `blockTools`. This library enables the creation of blocks based on multiple covariates, and the random assignment of blocked cases to other grouping structures (e.g., treatment conditions, coders, etc.).
 
 The method returns three outputs:
 
@@ -57,13 +57,13 @@ write_csv(output_df,
           na = "")
 
 coder_df_list <- map(
-  c("coder1", "coder2", "coder3"),
+  sort(unique(output_df$coder)),
   ~ output_df %>%
     filter(coder == .x)
-) %>% set_names(c("coder1", "coder2", "coder3"))
+) %>% set_names(sort(unique(output_df$coder)))
 
 write_xlsx(coder_df_list,
-           here("OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments_writexl.xlsx"))
+           here("OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments-tabbed.xlsx"))
 
 output_summ <- output_df %>% 
   group_by(coder) %>% 
@@ -84,29 +84,39 @@ write_csv(output_summ,
 <br>
 
 ###### COMMENTED SNIPPETS
-Load packages read the input, and prepare it for downstream processing. Here we use `mutate()` to clean up faulty codes, and `select()` only the columns required for block randomization.
+Load packages, read input, and prepare it for downstream processing. Here we use `mutate()` to clean up faulty codes, and `select()` only the columns required for block randomization.
 ```{r script, echo = 1:14, eval = FALSE}
 ```
-We use `blockTools::block()` to create the blocking groups from which cases can be plucked randomly and assigned to treatment conditions (or alternate output grouping scructure).^[We use `base::set.seed()` to ensure replicable results from any procedure that employs R's random-number generator.] The arguments passed to blocks are:
+We use `blockTools::block()` to create the blocking groups from which cases can be plucked randomly and assigned to output groups.^[Because `blockTools` functions rely on R's random-number generator, we use `base::set.seed()` to ensure identical output each time the script is run.] The arguments passed to blocks are:
 
 * `data`: designates the input file (here the object `input` is specified, omitting the argument label);
-* `n.tr`: number of treatment conditions;
+* `n.tr`: number of output groups;
 * `id.vars`: column containing the case ID;
 * `block.vars`: column(s) containing the variables whose categories are crossed to create the blocking structure.
 
 `block()` returns a list containing a data frame that specifies the blocking structure.
 ```{r script, echo = 16:18, eval = FALSE}
 ```
-`blockTools::assignment()` uses the blocking structure to assign cases to treatment conditions (output groups). Its arguments are:
+`blockTools::assignment()` uses the blocking structure to assign cases to output groups. Its arguments are:
 
 * `block.obj`: the output list from `block()`;
 * `seed`: random-number seed.
 
-`assignment()` returns a list containing a date frame specifying the assigment of cases to output groups.
+`assignment()` returns a list containing a data frame listing cases and their assigned output groups.
 ```{r script, echo = 20, eval = FALSE}
 ```
-We pass the output objects from `block()` and `assignment()`, along with the original input data, to `blockTools::block2seqblock()`. The latter function transforms its inputs, returning a list containing the original input with new column that specifies the output group assignment for each case. Using the argument `trn =`, we supply the names of the output groups (in this case, coder assigments).
+We pass the output objects from `block()` and `assignment()`, along with the original input data, to `blockTools::block2seqblock()`. The latter function transforms its inputs, returning a list containing the original input with a new column that specifies the output group assignment for each case. Using the argument `trn =`, we supply the names of the output groups (in this case, coder designations).
 
 We extract this output data frame into its own object (`output_df`), renaming and relocating columns to obtain desired formatting and structure, and writing the result to .csv.
 ```{r script, echo = 22:32, eval = FALSE}
+```
+We can also transform `output_df` into a .xlsx, with separate tabs holding the cases assigned to each output group. This format may be preferable for some downstream applications.
+
+We use `map()` to partition `output_df` into three data frames that will be written onto separate tabs in the output .xlsx. The `.x` argument to `map()` is a vector of the unique strings in the `coder` column of `output_df` (these coder designations will also serve as the tab names in the output .xlsx). In this example, `map()` iterates over the three-element `.x` vector, each time passing `output_df` to `filter()`, which retains only the rows where the value of `coder` is equal to the current-iteration of`.x`. `map()` returns a list of three data frames, with element names then applied by `set_names()`.
+
+We use `writexl::write_xlsx()` to create tabbed .xlsx output. We can pass a named list of data frames to this function, which saves a tabbed .xlsx, with each named data frame written to a separate named tab.
+```{r script, echo = 34:41, eval = FALSE}
+```
+The remaining output is a summary table that shows the distribution of cases within the blocking structure, for each output group. Here we group `output_df` by `coder`, and call the summary function `dplyr::count()`, which gives the case counts in each `clinical` category, within each level of `age_years`. We use `mutate(case_when())` to format the `coder` and `age_year` columns for better readability, and `write_csv()` the output.
+```{r script, echo = 43:56, eval = FALSE}
 ```

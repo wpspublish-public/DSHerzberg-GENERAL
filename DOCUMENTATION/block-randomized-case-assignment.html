@@ -170,9 +170,9 @@ pre code {
 
 <div id="overview" class="section level4">
 <h4>Overview</h4>
-<p>This method derives from random assignment procedures used in clinical trials. Input cases are categorized into blocks defined by the crossing of person characteristics, such as age and clinical status. Cases are then randomly plucked from these blocks to be assigned to treatment conditions.</p>
-<p>In WPS R&amp;D, this method was used with the OSEL project in 2021. Here, the task was to randomly assign speech transcripts to three coders. Blocking was employed to ensure that the age and clinical status distributions of transcripts were similar accross coders. The current demonstration uses the OSEL case ID data as input.</p>
-<p>The core functionality of this method is provided by the R package <code>blockTools</code>. This library enables the creation of blocks based on mulitple covariates, and the random assignment of blocked cases to other grouping structures (e.g., treatment conditions, coders, etc.).</p>
+<p>This method derives from random assignment procedures used in clinical trials. Input cases are categorized into blocks defined by the crossing of person characteristics, such as age and clinical status. Cases are then randomly plucked from these blocks to be assigned to treatment conditions (hereafter referred to as “output groups”).</p>
+<p>In WPS R&amp;D, this method was used in 2021 on the OSEL project. Here, the task was to randomly assign speech transcripts to three coders. Blocking was employed to ensure that the age and clinical status distributions of transcripts were similar across coders. The current demonstration uses the OSEL case ID data as input.</p>
+<p>The core functionality of this method is provided by the R package <code>blockTools</code>. This library enables the creation of blocks based on multiple covariates, and the random assignment of blocked cases to other grouping structures (e.g., treatment conditions, coders, etc.).</p>
 <p>The method returns three outputs:</p>
 <ul>
 <li>.csv listing cases and their assignments to output groups;</li>
@@ -215,13 +215,13 @@ write_csv(output_df,
           na = &quot;&quot;)
 
 coder_df_list &lt;- map(
-  c(&quot;coder1&quot;, &quot;coder2&quot;, &quot;coder3&quot;),
+  sort(unique(output_df$coder)),
   ~ output_df %&gt;%
     filter(coder == .x)
-) %&gt;% set_names(c(&quot;coder1&quot;, &quot;coder2&quot;, &quot;coder3&quot;))
+) %&gt;% set_names(sort(unique(output_df$coder)))
 
 write_xlsx(coder_df_list,
-           here(&quot;OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments_writexl.xlsx&quot;))
+           here(&quot;OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments-tabbed.xlsx&quot;))
 
 output_summ &lt;- output_df %&gt;% 
   group_by(coder) %&gt;% 
@@ -241,7 +241,7 @@ write_csv(output_summ,
 </div>
 <div id="commented-snippets" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>Load packages read the input, and prepare it for downstream processing. Here we use <code>mutate()</code> to clean up faulty codes, and <code>select()</code> only the columns required for block randomization.</p>
+<p>Load packages, read input, and prepare it for downstream processing. Here we use <code>mutate()</code> to clean up faulty codes, and <code>select()</code> only the columns required for block randomization.</p>
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 suppressMessages(library(blockTools))
@@ -256,10 +256,10 @@ input &lt;- suppressMessages(
            . == 3 ~ 2,
            TRUE ~ .))) %&gt;% 
   select(ID, age_years, clinical)</code></pre>
-<p>We use <code>blockTools::block()</code> to create the blocking groups from which cases can be plucked randomly and assigned to treatment conditions (or alternate output grouping scructure).<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> The arguments passed to blocks are:</p>
+<p>We use <code>blockTools::block()</code> to create the blocking groups from which cases can be plucked randomly and assigned to output groups.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> The arguments passed to blocks are:</p>
 <ul>
 <li><code>data</code>: designates the input file (here the object <code>input</code> is specified, omitting the argument label);</li>
-<li><code>n.tr</code>: number of treatment conditions;</li>
+<li><code>n.tr</code>: number of output groups;</li>
 <li><code>id.vars</code>: column containing the case ID;</li>
 <li><code>block.vars</code>: column(s) containing the variables whose categories are crossed to create the blocking structure.</li>
 </ul>
@@ -267,14 +267,14 @@ input &lt;- suppressMessages(
 <pre class="r"><code>set.seed(12345)
 blocks &lt;- block(input, n.tr = 3, id.vars = &quot;ID&quot;, 
                 block.vars = c(&quot;age_years&quot;, &quot;clinical&quot;))</code></pre>
-<p><code>blockTools::assignment()</code> uses the blocking structure to assign cases to treatment conditions (output groups). Its arguments are:</p>
+<p><code>blockTools::assignment()</code> uses the blocking structure to assign cases to output groups. Its arguments are:</p>
 <ul>
 <li><code>block.obj</code>: the output list from <code>block()</code>;</li>
 <li><code>seed</code>: random-number seed.</li>
 </ul>
-<p><code>assignment()</code> returns a list containing a date frame specifying the assigment of cases to output groups.</p>
+<p><code>assignment()</code> returns a list containing a data frame listing cases and their assigned output groups.</p>
 <pre class="r"><code>assignments &lt;- assignment(blocks, seed = 12345)</code></pre>
-<p>We pass the output objects from <code>block()</code> and <code>assignment()</code>, along with the original input data, to <code>blockTools::block2seqblock()</code>. The latter function transforms its inputs, returning a list containing the original input with new column that specifies the output group assignment for each case. Using the argument <code>trn =</code>, we supply the names of the output groups (in this case, coder assigments).</p>
+<p>We pass the output objects from <code>block()</code> and <code>assignment()</code>, along with the original input data, to <code>blockTools::block2seqblock()</code>. The latter function transforms its inputs, returning a list containing the original input with a new column that specifies the output group assignment for each case. Using the argument <code>trn =</code>, we supply the names of the output groups (in this case, coder designations).</p>
 <p>We extract this output data frame into its own object (<code>output_df</code>), renaming and relocating columns to obtain desired formatting and structure, and writing the result to .csv.</p>
 <pre class="r"><code>set.seed(12345)
 output_list &lt;- block2seqblock(blocks, assignments, input, 
@@ -287,12 +287,38 @@ output_df &lt;- output_list[[&quot;x&quot;]] %&gt;%
 write_csv(output_df,
           here(&quot;OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments.csv&quot;),
           na = &quot;&quot;)</code></pre>
+<p>We can also transform <code>output_df</code> into a .xlsx, with separate tabs holding the cases assigned to each output group. This format may be preferable for some downstream applications.</p>
+<p>We use <code>map()</code> to partition <code>output_df</code> into three data frames that will be written onto separate tabs in the output .xlsx. The <code>.x</code> argument to <code>map()</code> is a vector of the unique strings in the <code>coder</code> column of <code>output_df</code> (these coder designations will also serve as the tab names in the output .xlsx). In this example, <code>map()</code> iterates over the three-element <code>.x</code> vector, each time passing <code>output_df</code> to <code>filter()</code>, which retains only the rows where the value of <code>coder</code> is equal to the current-iteration of<code>.x</code>. <code>map()</code> returns a list of three data frames, with element names then applied by <code>set_names()</code>.</p>
+<p>We use <code>writexl::write_xlsx()</code> to create tabbed .xlsx output. We can pass a named list of data frames to this function, which saves a tabbed .xlsx, with each named data frame written to a separate named tab.</p>
+<pre class="r"><code>coder_df_list &lt;- map(
+  sort(unique(output_df$coder)),
+  ~ output_df %&gt;%
+    filter(coder == .x)
+) %&gt;% set_names(sort(unique(output_df$coder)))
+
+write_xlsx(coder_df_list,
+           here(&quot;OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments-tabbed.xlsx&quot;))</code></pre>
+<p>The remaining output is a summary table that shows the distribution of cases within the blocking structure, for each output group. Here we group <code>output_df</code> by <code>coder</code>, and call the summary function <code>dplyr::count()</code>, which gives the case counts in each <code>clinical</code> category, within each level of <code>age_years</code>. We use <code>mutate(case_when())</code> to format the <code>coder</code> and <code>age_year</code> columns for better readability, and <code>write_csv()</code> the output.</p>
+<pre class="r"><code>output_summ &lt;- output_df %&gt;% 
+  group_by(coder) %&gt;% 
+  count(age_years, clinical) %&gt;% 
+  mutate(coder = case_when(
+    lag(coder) == coder ~ NA_character_,
+    TRUE ~ coder),
+    age_years = case_when(
+      lag(age_years) == age_years ~ NA_integer_,
+      TRUE ~ age_years),
+  )
+
+write_csv(output_summ,
+          here(&quot;OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assign-strat-summ.csv&quot;),
+          na = &quot;&quot;)</code></pre>
 </div>
 </div>
 <div class="footnotes">
 <hr />
 <ol>
-<li id="fn1"><p>We use <code>base::set.seed()</code> to ensure replicable results from any procedure that employs R’s random-number generator.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn1"><p>Because <code>blockTools</code> functions rely on R’s random-number generator, we use <code>base::set.seed()</code> to ensure identical output each time the script is run.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
 </ol>
 </div>
 
