@@ -1,0 +1,112 @@
+---
+title: <font size="6">Block-Randomized Case Assigment</font>
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#### Overview
+
+This method derives from random assignment procedures used in clinical trials. Input cases are categorized into blocks defined by the crossing of person characteristics, such as age and clinical status. Cases are then randomly plucked from these blocks to be assigned to treatment conditions.
+
+In WPS R&D, this method was used with the OSEL project in 2021. Here, the task was to randomly assign speech transcripts to three coders. Blocking was employed to ensure that the age and clinical status distributions of transcripts were similar accross coders. The current demonstration uses the OSEL case ID data as input.
+
+The core functionality of this method is provided by the R package `blockTools`. This library enables the creation of blocks based on mulitple covariates, and the random assignment of blocked cases to other grouping structures (e.g., treatment conditions, coders, etc.).
+
+The method returns three outputs:
+
+* .csv listing cases and their assignments to output groups;
+* .xlsx with separate tabs containing the cases assigned to each output group;
+* .csv summary table with the case counts in each element of the blocking structure.
+
+###### RUNNABLE CODE
+```{r script, eval = TRUE}
+suppressMessages(library(here))
+suppressMessages(library(tidyverse))
+suppressMessages(library(blockTools))
+suppressMessages(library(writexl))
+
+input <- suppressMessages(
+  read_csv(
+    here("INPUT-FILES/osel-wps-r1-data.csv"
+         ))) %>% 
+  mutate(age_years = as.integer(trunc(ageinyears)),
+         across(clinical, ~ case_when(
+           . == 3 ~ 2,
+           TRUE ~ .))) %>% 
+  select(ID, age_years, clinical)
+
+set.seed(12345)
+blocks <- block(input, n.tr = 3, id.vars = "ID", 
+                block.vars = c("age_years", "clinical"))
+
+assignments <- assignment(blocks, seed = 12345)
+
+set.seed(12345)
+output_list <- block2seqblock(blocks, assignments, input, 
+                              trn = c("coder1", "coder2", "coder3"))
+
+output_df <- output_list[["x"]] %>% 
+  rename(coder = Tr) %>% 
+  relocate(coder, .after = "ID")
+
+write_csv(output_df,
+          here("OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments.csv"),
+          na = "")
+
+coder_df_list <- map(
+  c("coder1", "coder2", "coder3"),
+  ~ output_df %>%
+    filter(coder == .x)
+) %>% set_names(c("coder1", "coder2", "coder3"))
+
+write_xlsx(coder_df_list,
+           here("OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assignments_writexl.xlsx"))
+
+output_summ <- output_df %>% 
+  group_by(coder) %>% 
+  count(age_years, clinical) %>% 
+  mutate(coder = case_when(
+    lag(coder) == coder ~ NA_character_,
+    TRUE ~ coder),
+    age_years = case_when(
+      lag(age_years) == age_years ~ NA_integer_,
+      TRUE ~ age_years),
+  )
+
+write_csv(output_summ,
+          here("OUTPUT-FILES/BLOCK-RANDOMIZATION/osel-wps-r1-coder-assign-strat-summ.csv"),
+          na = "")
+```
+
+<br>
+
+###### COMMENTED SNIPPETS
+Load packages read the input, and prepare it for downstream processing. Here we use `mutate()` to clean up faulty codes, and `select()` only the columns required for block randomization.
+```{r script, echo = 1:14, eval = FALSE}
+```
+We use `blockTools::block()` to create the blocking groups from which cases can be plucked randomly and assigned to treatment conditions (or alternate output grouping scructure).^[We use `base::set.seed()` to ensure replicable results from any procedure that employs R's random-number generator.] The arguments passed to blocks are:
+
+* `data`: designates the input file (here the object `input` is specified, omitting the argument label);
+* `n.tr`: number of treatment conditions;
+* `id.vars`: column containing the case ID;
+* `block.vars`: column(s) containing the variables whose categories are crossed to create the blocking structure.
+
+`block()` returns a list containing a data frame that specifies the blocking structure.
+```{r script, echo = 16:18, eval = FALSE}
+```
+`blockTools::assignment()` uses the blocking structure to assign cases to treatment conditions (output groups). Its arguments are:
+
+* `block.obj`: the output list from `block()`;
+* `seed`: random-number seed.
+
+`assignment()` returns a list containing a date frame specifying the assigment of cases to output groups.
+```{r script, echo = 20, eval = FALSE}
+```
+We pass the output objects from `block()` and `assignment()`, along with the original input data, to `blockTools::block2seqblock()`. The latter function transforms its inputs, returning a list containing the original input with new column that specifies the output group assignment for each case. Using the argument `trn =`, we supply the names of the output groups (in this case, coder assigments).
+
+We extract this output data frame into its own object (`output_df`), renaming and relocating columns to obtain desired formatting and structure, and writing the result to .csv.
+```{r script, echo = 22:32, eval = FALSE}
+```

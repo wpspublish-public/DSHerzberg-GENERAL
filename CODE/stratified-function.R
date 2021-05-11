@@ -1,14 +1,24 @@
 # https://gist.github.com/mrdwab/6424112
 
 # The arguments to stratified are:
-#   
-#   df: The input data.frame
+#
+# df: The input data.frame 
+
 # group: A character vector of the column or columns that make up the "strata".
-# size: The desired sample size.
-# If size is a value less than 1, a proportionate sample is taken from each stratum.
-# If size is a single integer of 1 or more, that number of samples is taken from each stratum.
-# If size is a vector of integers, the specified number of samples is taken for each stratum. It is recommended that you use a named vector. For example, if you have two strata, "A" and "B", and you wanted 5 samples from "A" and 10 from "B", you would enter size = c(A = 5, B = 10).
-# select: This allows you to subset the groups in the sampling process. This is a list. For instance, if your group variable was "Group", and it contained three strata, "A", "B", and "C", but you only wanted to sample from "A" and "C", you can use select = list(Group = c("A", "C")).
+
+# size: The desired sample size. If size is a value less than 1, a proportionate
+# sample is taken from each stratum. If size is a single integer of 1 or more,
+# that number of samples is taken from each stratum. If size is a vector of
+# integers, the specified number of samples is taken for each stratum. It is
+# recommended that you use a named vector. For example, if you have two strata,
+# "A" and "B", and you wanted 5 samples from "A" and 10 from "B", you would
+# enter size = c(A = 5, B = 10).
+
+# select: This allows you to subset the groups in the sampling process. This is
+# a list. For instance, if your group variable was "Group", and it contained
+# three strata, "A", "B", and "C", but you only wanted to sample from "A" and
+# "C", you can use select = list(Group = c("A", "C")).
+
 # replace: For sampling with replacement.
 
 stratified <- function(df, group, size, select = NULL, 
