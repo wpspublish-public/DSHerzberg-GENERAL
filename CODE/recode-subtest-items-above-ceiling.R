@@ -20,37 +20,32 @@ input_long <- input %>%
   mutate(
     streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
                            TRUE ~ NA_integer_),
-    ceiling = case_when(
-      streak_val == 5 & lead(pre) == pre ~ 1,
-      TRUE ~ 0)
+    ceiling = case_when(streak_val == 5 & lead(pre) == pre ~ 1,
+                        TRUE ~ 0)
   )
 
-ceiling_subtests <-  input_long %>% 
-  group_by(ID, pre) %>% 
-  summarise(ceiling_count = sum(ceiling)) %>% 
-  mutate(ceiling_reached = case_when(
-    ceiling_count >= 1 ~ 1,
-    TRUE ~ NA_real_
-  )) %>% 
+ceiling_subtests <-  input_long %>%
+  group_by(ID, pre) %>%
+  summarise(ceiling_count = sum(ceiling)) %>%
+  mutate(ceiling_reached = case_when(ceiling_count >= 1 ~ 1,
+                                     TRUE ~ NA_real_)) %>%
   select(-ceiling_count)
 
-recode_output <- input_long %>% 
+recode_output <- input_long %>%
   left_join(ceiling_subtests, by = c("ID", "pre")) %>%
   group_by(ID) %>%
   mutate(
     NA_status = case_when(
-      (pre != lead(pre) | is.na(lead(pre))) & ceiling_reached == 1 ~ "offset_NA",
-      lag(ceiling) == 1 & pre == lag(pre) & ceiling_reached == 1~ "onset_NA",
+      (pre != lead(pre) |
+         is.na(lead(pre))) & ceiling_reached == 1 ~ "offset_NA",
+      lag(ceiling) == 1 &
+        pre == lag(pre) & ceiling_reached == 1 ~ "onset_NA",
       TRUE ~ NA_character_
     )
-  ) %>% 
-  group_by(ID, pre) %>% 
-  mutate(
-    across(
-      c(NA_status),
-      ~ fill_run(.)
-    )
-  ) %>% 
+  ) %>%
+  group_by(ID, pre) %>%
+  mutate(across(c(NA_status),
+                ~ fill_run(.))) %>%
   mutate(new_val = case_when(NA_status %in% c("onset_NA", "offset_NA") ~ 0,
                              TRUE ~ value)) %>%
   pivot_wider(
@@ -61,7 +56,11 @@ recode_output <- input_long %>%
   )
 
 write_csv(recode_output,
-          here(str_c("OUTPUT-FILES/recode-above-ceiling-output-",
-                     format(Sys.Date(), "%Y-%m-%d"),
-                     ".csv")),
+          here(
+            str_c(
+              "OUTPUT-FILES/recode-above-ceiling-output-",
+              format(Sys.Date(), "%Y-%m-%d"),
+              ".csv"
+            )
+          ),
           na = "")

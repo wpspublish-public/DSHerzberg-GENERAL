@@ -195,39 +195,34 @@ input_long &lt;- input %&gt;%
   )  %&gt;%
   group_by(ID, pre) %&gt;%
   mutate(
-    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = FALSE),
+    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
                            TRUE ~ NA_integer_),
-    ceiling = case_when(
-      streak_val == 5 &amp; lead(pre) == pre ~ 1,
-      TRUE ~ 0)
+    ceiling = case_when(streak_val == 5 &amp; lead(pre) == pre ~ 1,
+                        TRUE ~ 0)
   )
 
-ceiling_subtests &lt;- input_long %&gt;% 
-  group_by(ID, pre) %&gt;% 
-  summarize(ceiling_count = sum(ceiling)) %&gt;% 
-  mutate(ceiling_reached = case_when(
-    ceiling_count &gt;= 1 ~ 1,
-    TRUE ~ NA_real_
-  )) %&gt;% 
+ceiling_subtests &lt;-  input_long %&gt;%
+  group_by(ID, pre) %&gt;%
+  summarise(ceiling_count = sum(ceiling)) %&gt;%
+  mutate(ceiling_reached = case_when(ceiling_count &gt;= 1 ~ 1,
+                                     TRUE ~ NA_real_)) %&gt;%
   select(-ceiling_count)
 
-recode_output &lt;- input_long %&gt;% 
+recode_output &lt;- input_long %&gt;%
   left_join(ceiling_subtests, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%
   group_by(ID) %&gt;%
   mutate(
     NA_status = case_when(
-      (pre != lead(pre) | is.na(lead(pre))) &amp; ceiling_reached == 1 ~ &quot;offset_NA&quot;,
-      lag(ceiling) == 1 &amp; pre == lag(pre) &amp; ceiling_reached == 1~ &quot;onset_NA&quot;,
+      (pre != lead(pre) |
+         is.na(lead(pre))) &amp; ceiling_reached == 1 ~ &quot;offset_NA&quot;,
+      lag(ceiling) == 1 &amp;
+        pre == lag(pre) &amp; ceiling_reached == 1 ~ &quot;onset_NA&quot;,
       TRUE ~ NA_character_
     )
-  ) %&gt;% 
-  group_by(ID, pre) %&gt;% 
-  mutate(
-    across(
-      c(NA_status),
-      ~ fill_run(.)
-    )
-  ) %&gt;% 
+  ) %&gt;%
+  group_by(ID, pre) %&gt;%
+  mutate(across(c(NA_status),
+                ~ fill_run(.))) %&gt;%
   mutate(new_val = case_when(NA_status %in% c(&quot;onset_NA&quot;, &quot;offset_NA&quot;) ~ 0,
                              TRUE ~ value)) %&gt;%
   pivot_wider(
@@ -238,9 +233,13 @@ recode_output &lt;- input_long %&gt;%
   )
 
 write_csv(recode_output,
-          here(str_c(&quot;OUTPUT-FILES/recode-above-ceiling-output-&quot;,
-                     format(Sys.Date(), &quot;%Y-%m-%d&quot;),
-                     &quot;.csv&quot;)),
+          here(
+            str_c(
+              &quot;OUTPUT-FILES/recode-above-ceiling-output-&quot;,
+              format(Sys.Date(), &quot;%Y-%m-%d&quot;),
+              &quot;.csv&quot;
+            )
+          ),
           na = &quot;&quot;)</code></pre>
 <p><br></p>
 </div>
@@ -259,7 +258,7 @@ input &lt;- suppressMessages(read_csv(url(
   str_c(urlRemote_path, github_path, fileName_path)
 )))</code></pre>
 <p>We then <code>pivot_longer()</code> to transform the <code>input</code> data object into the long (multilevel) format. We use the <code>cols = -ID</code> argument to exclude the <code>ID</code> column from the pivot, so that in the transformed data object, item-reponse pairs are nested within each value of <code>ID</code>. <code>pivot_longer()</code> adds duplicate rows for each value of <code>ID</code>, creating <em>n</em> rows for each <code>ID</code>, where <em>n</em> is equal to the number of item columns in the original wide-format <code>input</code> object.</p>
-<p>As part of this transformation, <code>pivot_longer()</code> splits the names of the orginal item columns into two parts, and stores these parts in two columns in the long data object. The argument <code>names_to = c(&quot;pre&quot;, &quot;num&quot;)</code> gives the names of the two destination columns, and the argument <code>names_sep = 3</code> specifies that the original names will be split after the third character. <a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
+<p>As part of this transformation, <code>pivot_longer()</code> splits the names of the original item columns into two parts, and stores these parts in two columns in the long data object. The argument <code>names_to = c(&quot;pre&quot;, &quot;num&quot;)</code> gives the names of the two destination columns, and the argument <code>names_sep = 3</code> specifies that the original names will be split after the third character. <a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
 <pre class="r"><code>input_long &lt;- input %&gt;%
   pivot_longer(
     cols = -ID,
@@ -294,21 +293,18 @@ input &lt;- suppressMessages(read_csv(url(
 <p><code>ceiling</code> marks the row where the streak of consecutive <code>0</code> scores reaches the value designated by the stop rule (i.e., the row where <code>streak_val == 5</code>). We add the additional condition <code>lead(pre) == pre</code> so that the combined predicate will only return <code>TRUE</code> for rows that <em>ARE NOT</em> the last item of a subtest. For these “last item” rows, the value of <code>pre</code> changes on the next row, because that is the first row of a new subtest. Under this logical condition, <code>case_when()</code> codes <code>1</code> for rows where the streak of consecutive <code>0</code> scores reaches five, except if that row is the last item of a subtest. This ensures that special case 4, noted above, will be handled correctly.</p>
 <pre class="r"><code>  group_by(ID, pre) %&gt;%
   mutate(
-    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = FALSE),
+    streak_val = case_when(value == 0 ~ streak_run(value, na_rm = F),
                            TRUE ~ NA_integer_),
-    ceiling = case_when(
-      streak_val == 5 &amp; lead(pre) == pre ~ 1,
-      TRUE ~ 0)
+    ceiling = case_when(streak_val == 5 &amp; lead(pre) == pre ~ 1,
+                        TRUE ~ 0)
   )</code></pre>
 <p>The next step of the process is to identify those subtests, across persons, where the stop rule is satisfied. We store this labeling of subtests in a new data frame (<code>ceiling_subtests</code>), which we derive by first grouping <code>input_long</code> by <code>ID</code> and <code>pre</code> (subtests within persons). We then call <code>dplyr::summarize()</code> on the grouped data, We calculate the new summary variable <code>ceiling_count</code>. We <code>sum()</code> the <code>1</code> codes on <code>ceiling</code>, thereby ensuring that <code>ceiling_count</code> will be coded <code>0</code> within subtests where the stop rule was <em>NOT</em> satisfied. Any other value on <code>ceiling_count</code> indicates that the stop rule was satisfied for that subtest.</p>
-<pre class="r"><code>ceiling_subtests &lt;- input_long %&gt;% 
-  group_by(ID, pre) %&gt;% 
-  summarize(ceiling_count = sum(ceiling)) %&gt;% </code></pre>
+<pre class="r"><code>ceiling_subtests &lt;-  input_long %&gt;%
+  group_by(ID, pre) %&gt;%
+  summarise(ceiling_count = sum(ceiling)) %&gt;%</code></pre>
 <p><code>ceiling_count</code> encodes the status of whether the stop rule has been satisfied within a subtest, in such a way that it can be tested with a predicate. As before, we use <code>mutate()</code> and <code>case_when()</code> to define a new variable <code>ceiling_reached</code>, which is coded <code>1</code> only when <code>ceiling_count &gt;= 1</code>.</p>
-<pre class="r"><code>  mutate(ceiling_reached = case_when(
-    ceiling_count &gt;= 1 ~ 1,
-    TRUE ~ NA_real_
-  )) %&gt;% 
+<pre class="r"><code>  mutate(ceiling_reached = case_when(ceiling_count &gt;= 1 ~ 1,
+                                     TRUE ~ NA_real_)) %&gt;%
   select(-ceiling_count)</code></pre>
 <p>We use <code>dplyr::select()</code> to drop the <code>ceiling_code</code> column, which leaves the summary table <code>ceiling_subtests</code> with the following structure:</p>
 <pre><code>    ID pre   ceiling_reached
@@ -322,88 +318,79 @@ input &lt;- suppressMessages(read_csv(url(
 201017 iwr                 1
 201017 iws                 1
 201017 lem                 1</code></pre>
-</div>
-</div>
-<div id="obsolete-code-below" class="section level4">
-<h4>OBSOLETE CODE BELOW</h4>
-<p>The next code segment returns a data frame <code>miss_recode</code> whose rows are the cases that need column subsets recoded, with up to three subsets identified per case. We use <code>map_df()</code> to apply functions to <code>input_orig</code>, iterating over the column ranges contained in <code>col_subsets</code>. Thus, wherever the token <code>.x</code> appears, <code>map_df()</code> substitutes the current-iteration element of <code>col_subsets</code> (e.g., <code>&quot;i001:i050&quot;</code>) into the code.</p>
-<p>Central to this operation is <code>dplyr::filter()</code> which finds cases (rows) that meet logical criteria. To pass the column ranges into <code>filter()</code>, we use the helper <code>dplyr::across()</code>, which specifies a set of columns to be tested against a logical predicate. Within <code>across</code>, we need R to evaluate the column range <code>&quot;i001:i050&quot;</code> (for example) as an <em>expression</em>, not as a string. We can unquote the string using the <code>!!</code> operator, and then transform it into an expression with <code>rlang::parse_expr()</code>. We then specify the logical predicate <code>~ is.na(.)</code>, by which <code>filter()</code> will pick rows. <code>filter()</code> thereby returns only rows that are missing <code>NA</code> on <em>all</em> columns within the range currently specified by <code>.x</code>, which is passed into <code>is.na()</code> with the single dot <code>.</code> shorthand.</p>
-<p>We then use <code>dplyr::mutate()</code> to create a new variable <code>recode_cols1</code> that holds the label of the first column range that is all missing for the filtered rows. Here, <code>mutate()</code> can operate on <code>.x</code> with out any NSE transformations, because the value of <code>.x</code> is a string, which is the correct variable type to represent the column range in <code>recode_cols1</code>. We use <code>dplyr::select()</code> to keep only two columns going forward.</p>
-<p>In the current data object, if a case is all missing on more than one column range, it has a duplicate <code>ID</code> row for each of the ranges. We use <code>dplyr::arrange()</code> to sort the rows by <code>ID</code>, so the duplicate <code>ID</code> rows are adjacent to one another.</p>
-<pre class="r"><code>                           TRUE ~ NA_integer_),
-    ceiling = case_when(
-      streak_val == 5 &amp; lead(pre) == pre ~ 1,
-      TRUE ~ 0)
-  )
-
-ceiling_subtests &lt;- input_long %&gt;% 
-  group_by(ID, pre) %&gt;% 
-  summarize(ceiling_count = sum(ceiling)) %&gt;% 
-  mutate(ceiling_reached = case_when(</code></pre>
-<p>We now execute a transformation by which cases with multiple missing column ranges have the labels for those ranges placed in new columns, as oppose to adjacent rows within the <code>recode_cols1</code> column. To do this, we use <code>mutate()</code> to create three new columns. <code>streak</code> is the output of <code>runner::streak_run(ID)</code>, which returns each row’s ordinal position within a sequence of consecutive instances of identical values of <code>ID</code>. In other words, <code>streak</code> is always 1 for non-duplicate values of <code>ID</code>. For duplicate <code>ID</code> rows, <code>streak</code> is 2 or 3, respectively, for the second or third consecutive occurrence of the same <code>ID</code> value.</p>
-<p><code>recode_cols2</code> and <code>recode_cols3</code> are variables that hold labels for the second and third all-missing column ranges, for any cases that have them. We need a single row for each value of <code>ID</code>, with appropriate range labels in <code>recode_cols1</code>, <code>recode_cols2</code>, and <code>recode_cols3</code>, depending on how many column ranges are missing for each case. That single row will be the first in a set of identical <code>ID</code> rows, where the value of <code>streak</code> is 1.</p>
-<p>For cases with more than one all-missing range, the labels for the second and third ranges are now located in adjacent rows within the <code>recode_cols1</code> column. In the rows containing the second and third missing ranges, <code>streak</code> is 2 or 3, respectively. To copy the labels for these second and third missing ranges into <code>recode_cols2</code> and <code>recode_cols3</code>, we use <code>dplyr::case_when()</code>, which assigns values to a variable based on logical conditions.</p>
-<p>We identify the first row in a set of duplicate <code>ID</code> rows with the predicate <code>lead(streak) == 2</code>, where <code>lead()</code> refers to the next row moving downward. This captures only the first rows in sets of identical <code>ID</code> values, because by definition, only these rows are adjacent to rows where <code>streak</code> is 2. For these first rows in sets of identical <code>ID</code> values, then, <code>case_when()</code> assigns a value to <code>recode_cols2</code> that it plucks from <code>recode_cols1</code> in the next row, where <code>streak</code> is 2 (using the formula <code>~ lead(recode_cols1)</code>. This value is the label for the second all-missing range for that case. For any row that is <em>not</em> the first row in a set of identical <code>ID</code> values, <code>case_when()</code> returns <code>NA</code>, via the argument <code>T ~ NA_character_</code>, which defines the “else” logical condition.</p>
-<p>We assign values for <code>recode_cols3</code> with a similar procedure, except here we look ahead <em>two</em> rows, by passing the argument <code>2</code> to <code>lead()</code>. Two rows ahead is where we will find the label for any third set of all-missing columns (and where the value of <code>streak</code> is 3).</p>
-<p>To finish the procedure, we drop the superfluous duplicate <code>ID</code> rows by calling <code>filter(streak == 1)</code>. We no longer need rows where <code>streak</code> is 2 or 3, because those rows contain column range labels are now registered in <code>recode_cols2</code> and <code>recode_cols3</code>. The resulting data object <code>miss_recode</code> contains a single row for each case that requires recoding of column ranges.</p>
-<pre class="r"><code>    ceiling_count &gt;= 1 ~ 1,
-    TRUE ~ NA_real_
-  )) %&gt;% 
-  select(-ceiling_count)
-
-recode_output &lt;- input_long %&gt;% 
-  left_join(ceiling_subtests, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%
-  group_by(ID) %&gt;%
-  mutate(</code></pre>
-<p>The next segment operates on the BLIMP imputed data file, and recodes cases that, in the original input file, were all missing on one or more column subsets. To begin, we use <code>dplyr::left_join()</code> to bind the <code>blimp_output</code> and <code>miss_recode</code> data frames, passing <code>by = &quot;ID&quot;</code> to align the columns by <code>ID</code>. We <code>relocate()</code> columns to obtain a desired sequence.</p>
-<p>We then <code>pivot_longer()</code> to transform the data object into the tall (multilevel format), in which items and responses are nested within each value of <code>ID</code>. In the argument <code>cols = c(-ID, -recode_cols1, -recode_cols2, -recode_cols3)</code> we exclude the four named columns from the pivot to the longer format, thus establishing that in the outer level of nesting, each value of <code>ID</code> will be paired with the correct labels contained in the three <code>recode_cols</code> columns. In the resulting long data object, the input column names are contained in a single column given by the argument <code>names_to = c(&quot;item&quot;)</code>, and the paired responses are contained the <code>value</code> column. As a result, we now need only recode values in a single column. In the wide format, we would have needed to recode multiple columns, which would require more elaborate code.</p>
-<pre class="r"><code>    NA_status = case_when(
-      (pre != lead(pre) | is.na(lead(pre))) &amp; ceiling_reached == 1 ~ &quot;offset_NA&quot;,
-      lag(ceiling) == 1 &amp; pre == lag(pre) &amp; ceiling_reached == 1~ &quot;onset_NA&quot;,
+<p>Within each <code>ID</code> number (person) are rows for all subtests (labeled in the <code>pre</code> column). The <code>ceiling_reached</code> column contains that status for each subtest, within each person.</p>
+<p>Now we are ready to recode the data in <code>input_long</code>, saving it an new data frame <code>recode_output</code>. We first join the <code>ceiling_reached</code> column to <code>input_long</code>, using <code>left_join(ceiling_subtests, by = c(&quot;ID&quot;, &quot;pre&quot;))</code>. The <code>by =</code> argument ensures that the the labeling in <code>ceiling_reached</code> will be aligned to the correct rows in <code>input_long</code>.</p>
+<pre class="r"><code>recode_output &lt;- input_long %&gt;%
+  left_join(ceiling_subtests, by = c(&quot;ID&quot;, &quot;pre&quot;)) %&gt;%</code></pre>
+<p>Recall that in the long-format input object, test items are nested within subtests, which are in turn nested within persons. Because test items exist in successive rows, we need to label the first (“recode onset”) and last (“recode offset”) rows of the subset of rows to be recoded.</p>
+<p>To accomplish this, we first regroup the data by <code>ID</code>, so that process of labeling rows restarts for each successive person. We call <code>mutate(case_when())</code> to create a new column <code>NA_status</code>, which holds the <code>onset_NA</code> and <code>offset_NA</code> labels for each subtest to be recoded.</p>
+<p>We identify rows to be labeled with logical tests (predicates) that depend on the values of <code>pre</code>, <code>ceiling</code>, and <code>ceiling_reached</code>. For example, <code>case_when()</code> codes <code>&quot;onset_NA&quot;</code> as the value of <code>NA_status</code>, when the predicate <code>lag(ceiling) == 1 &amp; pre == lag(pre) &amp; ceiling_reached == 1</code> returns <code>TRUE</code>. In turn, this compound predicate returns <code>TRUE</code> if and only if three conditions are met, for any given row:</p>
+<ul>
+<li>The value of <code>ceiling</code> in the previous <code>lag()</code> row is <code>1</code>. In other words, the stop rule for that subtest was satisfied by the streak of responses that ended in the previous row.</li>
+<li>The value of <code>pre</code> is identical to its value in the previous row (<code>lag(pre)</code>). In other words, the item (row) currently being tested belongs to the same subtest as the item that satisfied the stop rule.</li>
+<li>The current subtest is one in which the stop rule has been satisfied (<code>ceiling_reached == 1</code>). This may seem redundant with the first condition above, but note that the current condition depends on the state of a <em>subtest</em>, whereas the first condition depends on the state of a <em>row</em>. There is a subtle distinction between these two logical states, and both states must be taken into account to ensure proper labeling of the rows that need to be recoded.</li>
+</ul>
+<p>To recount, this call of <code>mutate(case_when())</code> returns a new variable <code>NA_status</code>, that holds labels for the boundaries of a run of successive items (rows) that need to be recoded. For the first row of such a run, the label is <code>onset_NA</code>, and for the last row of such a run, the label is <code>offset_NA</code>.</p>
+<pre class="r"><code>  group_by(ID) %&gt;%
+  mutate(
+    NA_status = case_when(
+      (pre != lead(pre) |
+         is.na(lead(pre))) &amp; ceiling_reached == 1 ~ &quot;offset_NA&quot;,
+      lag(ceiling) == 1 &amp;
+        pre == lag(pre) &amp; ceiling_reached == 1 ~ &quot;onset_NA&quot;,
       TRUE ~ NA_character_
     )
-  ) %&gt;% </code></pre>
-<p>We now use <code>tidyr::extract()</code> to create new columns that will hold markers delineating the ranges of rows in the <code>value</code> column that need to be recoded. Here we examine only the code segment that operates on <code>recode_cols1</code>; an analogous procedure is used on <code>recode_cols2</code> and <code>recode_cols3</code>.</p>
-<p><code>extract()</code> splits strings contained in one column and places each part into a new column. The first argument names <code>recode_cols1</code> as the source column, and the second argument (<code>into =</code>) names <code>start1</code> and <code>end1</code> as the two destination columns. The third argument <code>&quot;([[:alnum:]]{4}):(.*)&quot;</code> is a regular expression that specifies how and where to split the value contained in <code>recode_cols1</code> into two strings. For example, we can split the range label <code>&quot;i001:i050&quot;</code> into <code>i001</code> (the first item number in the range) and <code>i050</code> (the last item number in the range). Within the regular expression, parentheses enclose the string segments going to <code>start1</code> (<code>([[:alnum:]]{4})</code>) and <code>end1</code> (<code>(.*)</code>). Characters outside the parentheses (e.g., <code>:</code>) are dropped. The final argument <code>remove = F</code> indicates that the source column will be retained in the output.</p>
-<p>This <code>extract()</code> sequence is repeated for <code>recode_cols2</code> and <code>recode_cols3</code>, creating <code>start</code> and <code>end</code> columns for each. As a result, we can now identify and mark the item ranges to be recoded with a logical test.</p>
-<pre class="r"><code>  group_by(ID, pre) %&gt;% 
-  mutate(
-    across(
-      c(NA_status),
-      ~ fill_run(.)
-    )</code></pre>
-<p>In the next sequence, we use the <code>runner</code> package to label rows (items) for recoding. Because we need <code>fill_run()</code> to operate only within values of <code>ID</code> (that is, within single cases), we call <code>dplyr::group_by()</code> to group the data object by <code>ID</code>.</p>
-<p>We then invoke <code>mutate()</code> to create a new column <code>recode_run</code> to hold the start and end points for the item ranges to be recoded. We assign values using <code>case_when()</code>, marking the start item for first range to be recoded with the expression <code>start1 == item ~ &quot;recode1&quot;</code>. When evaluated, this expression finds the row that represents the item named in <code>start1</code>; that is, the <em>first</em> item in the first item range to be recoded. In this row, it assigns the value <code>recode1</code> to the column <code>recode_run</code>. With the expression <code>end1 == item ~ &quot;recode1&quot;</code>, <code>case_when()</code> assigns <code>recode1</code> to mark the row containing the <em>last</em> item in the first item range to be recoded. It then repeats this process for the second and third ranges to be recoded, for any cases that have additional ranges. As a result, the start and end points for up to three item ranges per case (<code>ID</code>) are now marked, within the <code>recode_run</code> column.</p>
-<pre class="r"><code>                     format(Sys.Date(), &quot;%Y-%m-%d&quot;),
-                     &quot;.csv&quot;)),
-          na = &quot;&quot;)
-NA
-NA
-NA
-NA
-NA
-NA
-NA
-NA
-NA</code></pre>
-<p>We can use <code>runner::fill_run()</code> to fill in values between the labeled start and end rows. We use <code>across()</code> to address only the <code>recode_run</code> column, and call <code>fill_run()</code> with the formula shorthand <code>~</code>. We provide the <code>.</code> shorthand to specify <code>recode_run</code>, and pass the argument <code>only_within = T</code> to limit the filling of values to only those rows <em>between</em> the start and end points of item ranges to be recoded. As a result, each row in the first item range is now labeled with <code>recode1</code>, and similarly for the second and third item ranges.</p>
-<pre class="r"><code>NA
-NA</code></pre>
-<p>We use <code>case_when()</code> to recode the column <code>value</code>, recoding only the labeled rows to <code>NA</code>. The expression <code>recode_run %in% c(&quot;recode1&quot;, &quot;recode2&quot;, &quot;recode3&quot;) ~ NA_real_</code> specifies that whenever the value of <code>recode_run</code> is one of three elements <code>%in%</code> a character vector, the value of <code>value</code> will be changed to <code>NA</code>. Passing the “else” argument <code>T ~ value</code> leaves all other rows within <code>value</code> unchanged.</p>
-<pre class="r"><code>NA
-NA
-NA
-NA
-NA
-NA</code></pre>
-<p>Finishing up, we use <code>select()</code> to drop all columns except those needed to recreate the original wide format, in which we had only the ID and item columns. We <code>pivot_wider()</code> the data object back to wide format, drawing the item column names from the <code>item</code> column, and the item row values from the <code>value</code> column.</p>
-<pre class="r"><code>NA
-NA
-NA
-NA
-NA</code></pre>
-<p>The following table illustrates how the recoding process plays out for case <code>230010</code>, which is missing data both on subtests that the examinee attempted (Type 1), and on all items of subtests <em>NOT</em> attempted (Type 2). Specifically, <code>230010</code> is Type 2 missing on the item range <code>i051:i084</code>.</p>
-<p>The table shows items <code>i051</code> to <code>i060</code> for case <code>230010</code>, at three stages of the process. In the original input data <code>input_orig</code>, the item range is all <code>NA</code>, because the examinee did not attempt any items in this range. In the unrecoded <code>blimp_output</code>, the item range is all <code>1</code> because BLIMP imputed the missing data. In the recoded <code>blimp_recode</code>, the item range has been recoded back to its correct Type 2 state of <code>NA</code>. This recoding operation leaves the imputations in place for any Type 1 missing data.</p>
+  ) %&gt;%</code></pre>
+<p>The example below reveals the structure of the long data object at this stage. The subset of rows to be recoded begins with <code>onset_NA</code> and ends with <code>offset_NA</code>. Examination of these labeled rows, and their lagging and leading rows, shows how the conditions of the predicates within <code>mutate(case_when())</code> are satisfied.</p>
+<pre><code>    ID pre   num   value streak_val ceiling ceiling_reached NA_status
+ 201016 iws   34        0          4       0               1 NA       
+ 201016 iws   35        0          5       1               1 NA       
+ 201016 iws   36       NA         NA       0               1 onset_NA 
+ 201016 iws   37       NA         NA       0               1 NA       
+ 201016 iws   38       NA         NA       0               1 NA       
+ 201016 iws   39       NA         NA       0               1 NA       
+ 201016 iws   40       NA         NA       0               1 NA       
+ 201016 iws   41       NA         NA       0               1 NA       
+ 201016 iws   42       NA         NA       0               1 NA       
+ 201016 iws   43       NA         NA       0               1 NA       
+ 201016 iws   44       NA         NA       0               1 NA       
+ 201016 iws   45       NA         NA       0               1 NA       
+ 201016 iws   46       NA         NA       0               1 NA       
+ 201016 iws   47       NA         NA       0               1 NA       
+ 201016 iws   48       NA         NA       0               1 NA       
+ 201016 iws   49       NA         NA       0               1 NA       
+ 201016 iws   50       NA         NA       0               1 offset_NA
+ 201016 bln   1         1         NA       0               1 NA       
+ 201016 bln   2         1         NA       0               1 NA       </code></pre>
+<p>Note, too, that within the subset of rows delineated by these boundary labels, <code>value</code> always equals <code>NA</code>. In the next code snippet, we complete the recoding process by changing <code>value</code> in these rows from <code>NA</code> to <code>0</code>.</p>
+<p>To execute the recoding, we first regroup the data by <code>ID</code> and <code>pre</code>, to ensure that subsquent operations are restarted anew <em>within</em> subsets and persons. We then call <code>mutate()</code> to apply a function only to the <code>NA_status</code> column (isolating it for this purpose with <code>across()</code>). We use <code>fill_run(.)</code> to fill in rows of <code>NA_status</code> with the previous non-NA value (the <code>.</code> indicates that the function is to be applied to the column isolated by <code>across()</code>). <code>fill_run()</code> thus encounters the row labeled <code>onset_NA</code> and replaces <code>NA</code> with <code>onset_NA</code> in subsequent rows until it encounters another non-NA value (<code>offset_NA</code>), at which point it stops replacing values.</p>
+<p>Now, the coding of <code>NA_status</code> in the rows of the previous example looks like this:</p>
+<pre><code>   ID pre   num   value streak_val ceiling ceiling_reached NA_status
+201016 iws   34        0          4       0               1 NA       
+201016 iws   35        0          5       1               1 NA       
+201016 iws   36       NA         NA       0               1 onset_NA 
+201016 iws   37       NA         NA       0               1 onset_NA 
+201016 iws   38       NA         NA       0               1 onset_NA 
+201016 iws   39       NA         NA       0               1 onset_NA 
+201016 iws   40       NA         NA       0               1 onset_NA 
+201016 iws   41       NA         NA       0               1 onset_NA 
+201016 iws   42       NA         NA       0               1 onset_NA 
+201016 iws   43       NA         NA       0               1 onset_NA 
+201016 iws   44       NA         NA       0               1 onset_NA 
+201016 iws   45       NA         NA       0               1 onset_NA 
+201016 iws   46       NA         NA       0               1 onset_NA 
+201016 iws   47       NA         NA       0               1 onset_NA 
+201016 iws   48       NA         NA       0               1 onset_NA 
+201016 iws   49       NA         NA       0               1 onset_NA 
+201016 iws   50       NA         NA       0               1 offset_NA
+201016 bln   1         1         NA       0               1 NA       
+201016 bln   2         1         NA       0               1 NA       </code></pre>
+<pre class="r"><code>  group_by(ID, pre) %&gt;%
+  mutate(across(c(NA_status),
+                ~ fill_run(.))) %&gt;%
+  mutate(new_val = case_when(NA_status %in% c(&quot;onset_NA&quot;, &quot;offset_NA&quot;) ~ 0,
+                             TRUE ~ value)) %&gt;%</code></pre>
+</div>
 </div>
 <div class="footnotes">
 <hr />
