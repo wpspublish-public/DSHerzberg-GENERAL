@@ -9,11 +9,11 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 #### Overview
 
-This a method for recoding items within subtests, once a ceiling (or stop rule) has been satisfied. In its current form, the method applies a single stop-rule across all subtests.
+This a method for recoding (or rescoring) items within subtests, once a ceiling rule (or stop rule) has been satisfied. In its current form, the method applies a single stop-rule across all subtests.
 
-Consider a test of cognitive ability, with subtest items ordered by increasing difficulty. With a stop rule of five, the examiner stops administering items after failure on five consecutive items. In the raw data file, data are missing for all items above the ceiling item. However, the ceiling rule requires that counting these items as failed, meaning they must be recoded from `NA` to `0`. 
+Consider a test of cognitive ability, with subtest items ordered by increasing difficulty. With a stop rule of five, the examiner stops administering items after failure on five consecutive items. In the raw data file, data are missing (`NA`) for all items above the ceiling item. However, the stop rule requires that counting these items as failed, meaning they must be recoded from `NA` to `0`. 
 
-The central operation here is counting consecutive `0` responses in the data, and recoding only items after the stop rule is satisfied. To accomplish this, we first pivot the data from wide to long format, such that consecutive items appear as consecutive rows, instead of consecutive columns. This facilitates more concise code by allowing row-wise application of key `dplyr` and `tidyr` functions.
+The central operation here is counting consecutive `0` responses in the data, and recoding only the items that are not administered, after the stop rule is satisfied. To accomplish this, we first pivot the data from wide to long format, such that consecutive items appear as consecutive rows, instead of consecutive columns. This facilitates more concise code by allowing row-wise application of `dplyr` and `tidyr` functions.
 
 
 ###### RUNNABLE CODE
@@ -92,7 +92,7 @@ write_csv(recode_output,
 Load libraries and read input data. Note the use of `readr::read_csv(url())` to read in a file from a remote server (github).
 ```{r script, echo = 1:11, eval = FALSE}
 ```
-We then `pivot_longer()` to transform the `input` data object into the long (multilevel) format. We use the `cols = -ID` argument to exclude the `ID` column from the pivot, so that in the transformed data object, item-reponse pairs are nested within each value of `ID`. `pivot_longer()` adds duplicate rows for each value of `ID`, creating _n_ rows for each `ID`, where _n_ is equal to the number of item columns in the original wide-format `input` object.
+We use `pivot_longer()` to transform the `input` data object from its native wide format, in which scores for each item reside in their own columns, into the long (multilevel) format, in which scores for all items reside in a single column. We use the `cols = -ID` argument to exclude the `ID` column from the pivot, so that in the transformed data object, item-score pairs are nested within each value of `ID`. `pivot_longer()` adds duplicate rows for each value of `ID`, creating _n_ rows for each `ID`, where _n_ is equal to the number of item columns in the original wide-format `input` object.
 
 As part of this transformation, `pivot_longer()` splits the names of the original item columns into two parts, and stores these parts in two columns in the long data object. The argument `names_to = c("pre", "num")` gives the names of the two destination columns, and the argument `names_sep = 3` specifies that the original names will be split after the third character. ^[The required argument `values_to = ` is omitted here, meaning it will pass its default specification of "value". Thus, the cell values from the original item columns will be stored in a destination column named `value`.]
 ```{r script, echo = 13:18, eval = FALSE}
@@ -118,25 +118,25 @@ Compare this to the head of the transformed long-format object `input_long`:
 201016 iws   6         1
 ```
 
-We can use functions from the `runner` package to count and process streaks of consecutive identical responses. In applying these functions, we need to account for several special situations that may occur in the input data:
+We can use functions from the `runner` package to count and process streaks of consecutive identical scores. In applying these functions, we need to be able to handle several special situations that may occur in the input data:
 
-1. The examiner discontinues administration _before_ the stop rule is satisfied. For example, the examiner stops administering a subtest after four consecutive scores of `0`, even though the stop rule requires five consecutive `0` scores before stopping.
-2. The examiner continues administration _after_ the stop rule is satisfied. For example, the examiner continues administration until six consecutive `0` scores are recorded, even though the stop rule requires discontinuation after five consecutive `0` scores.
-3. The examiner administers all items in a subtest, without ever encountering a streak of consecutive `0` scores long enough to trigger the stop rule.
-4. The examiner satisfies the stop rule on the _last item_ of the subtest. For example, the stop rule is five, and the last item of the subtest is the fifth consecutive `0` score (and there were no previous `0` streaks longer than four).
+1. The examiner discontinues administration _before_ the stop rule is satisfied. For example, the examiner stops administering a subtest after four consecutive scores of `0`, even though the stop rule requires five consecutive `0` scores before stopping. In this case, no items are recoded, because the condition that triggers recoding (satisfying the stop role) is never met.
+2. The examiner continues administration _after_ the stop rule is satisfied. For example, the examiner continues administration until six consecutive `0` scores are recorded, even though the stop rule requires discontinuation after only five consecutive `0` scores. In this case, all items above the last `0` score are recoded.
+3. The examiner administers all items in a subtest, without ever encountering a streak of consecutive `0` scores long enough to trigger the stop rule. In this case, no items are recoded.
+4. The examiner satisfies the stop rule on the _last item_ of the subtest. For example, the stop rule is five, and the last item of the subtest is the fifth consecutive `0` score (and there were no previous `0` streaks longer than four). In this case, even though the stop rule is satisfied, no items are recoded.
 
 When applying `runner` functions, we need R to count streaks _within_ the groups of rows that constitute all the items from each subtest, and to restart these counts when moving from one group of subtest rows to the next. We accomplish this by calling `group_by(ID, pre)`, thus creating groups of rows for each subtest (identified by values of `pre`), nested within each person (identified by values of `ID`).
 
-We then use `dplyr::mutate()` to create two new variables, calling `dplyr::case_when()` to assign values to these variables based on logical predicates. The `streak_val` column holds the length of the current streak of consecutive `0` scores (designated by the predicate `value == 0`). When that predicate returns `TRUE`, `case_when()` applies `runner::streak_run` to `value`. The resulting value of `streak_run` is the number of consecutive `0` scores at that row. The argument `na_rm = FALSE` permits `streak_run` to include `NA` values in the count. `TRUE ~ NA_integer_` defines the "else" condition of this predicate, specifying that when `value != 0`, the value of `streak_run` will be `NA`.
+We then use `dplyr::mutate()` to create two new variables, calling `dplyr::case_when()` to assign values to these variables based on logical predicates. The `streak_val` column holds the length of the current streak of consecutive `0` scores (designated by the predicate `value == 0`). When that predicate returns `TRUE`, `case_when()` applies `runner::streak_run()` to `value`. The resulting value of `streak_val` is the number of consecutive `0` scores at that row. The argument `na_rm = FALSE` permits `streak_run` to include `NA` values in the count. `TRUE ~ NA_integer_` defines the "else" condition of this predicate, specifying that when `value != 0`, the value of `streak_val` will be `NA`.
 
-`ceiling` marks the row where the streak of consecutive `0` scores reaches the value designated by the stop rule (i.e., the row where `streak_val == 5`). We add the additional condition `lead(pre) == pre` so that the combined predicate will only return `TRUE` for rows that _ARE NOT_ the last item of a subtest. For these "last item" rows, the value of `pre` changes on the next row, because that is the first row of a new subtest. Under this logical condition, `case_when()` codes `1` for rows where the streak of consecutive `0` scores reaches five, except if that row is the last item of a subtest. This ensures that special case 4, noted above, will be handled correctly.
+The second new column is `ceiling`, which marks the row where the streak of consecutive `0` scores reaches the value designated by the stop rule (i.e., the row where `streak_val == 5`). We add the additional condition `lead(pre) == pre` so that the combined predicate will only return `TRUE` for rows that _ARE NOT_ the last item of a subtest. For these "last item" rows, the value of `pre` changes on the next row, because that is the first row of a new subtest. Under these logical conditions, `case_when()` codes `ceiling` as `1` for rows where the streak of consecutive `0` scores reaches five, except if that row is the last item of a subtest. This ensures that special case 4, noted above, is handled correctly.
 
 ```{r script, echo = 19:25, eval = FALSE}
 ```
-The next step of the process is to identify those subtests, across persons, where the stop rule is satisfied. We store this labeling of subtests in a new data frame (`ceiling_subtests`), which we derive by first grouping `input_long` by `ID` and `pre` (subtests within persons). We then call `dplyr::summarize()` on the grouped data, We calculate the new summary variable `ceiling_count`. We `sum()` the `1` codes on `ceiling`, thereby ensuring that `ceiling_count` will be coded `0` within subtests where the stop rule was _NOT_ satisfied. Any other value on `ceiling_count` indicates that the stop rule was satisfied for that subtest.
+The next step is to identify those subtests, across persons, where the stop rule is satisfied. We store this labeling of subtests in a new data frame (`ceiling_subtests`), which we derive by first grouping `input_long` by `ID` and `pre` (subtests within persons). We then call `dplyr::summarize()` on the grouped data, We calculate the new summary variable `ceiling_count`. We `sum()` the `1` codes on `ceiling`, thereby ensuring that `ceiling_count` will be coded `0` within subtests where the stop rule was _NOT_ satisfied. Any other value on `ceiling_count` indicates that the stop rule was satisfied for that subtest.
 ```{r script, echo = 27:29, eval = FALSE}
 ```
-`ceiling_count` encodes the status of whether the stop rule has been satisfied within a subtest, in such a way that it can be tested with a predicate. As before, we use `mutate()` and `case_when()` to define a new variable `ceiling_reached`, which is coded `1` only when `ceiling_count >= 1`.
+Substantively, `ceiling_count` encodes the number of times the stop rule is satisfied during the administration of a subtest. Special case 2, noted above, describes an administration error which can result in more than one instance of the stop rule being satisfied, within a subtest. To proceed with recoding, we need to transform `ceiling_count` into a binary variable, coded `1` for subtests where the stop rule is satisfied, and `NA` for subtests where the stop rule is not satisfied. This transformation is held in the new column `ceiling_reached`, created with `mutate(case_when())`. Thus, `ceiling_reached` is coded `1` only when `ceiling_count >= 1`.
 ```{r script, echo = 30:32, eval = FALSE}
 ```
 We use `dplyr::select()` to drop the `ceiling_code` column, which leaves the summary table `ceiling_subtests` with the following structure:
@@ -154,25 +154,27 @@ We use `dplyr::select()` to drop the `ceiling_code` column, which leaves the sum
 201017 iws                 1
 201017 lem                 1
 ```
-Within each `ID` number (person) are rows for all subtests (labeled in the `pre` column). The `ceiling_reached` column contains that status for each subtest, within each person.
+Within each `ID` number (person) are rows for all subtests (which are identified in the `pre` column). The `ceiling_reached` column marks the subtests for which the stop rule was satisfied, within each person.
 
-Now we are ready to recode the data in `input_long`, saving it an new data frame `recode_output`. We first join the `ceiling_reached` column to `input_long`, using `left_join(ceiling_subtests, by = c("ID", "pre"))`. The `by = ` argument ensures that the the labeling in `ceiling_reached` will be aligned to the correct rows in `input_long`.
+Now we are ready to recode the data in `input_long`. We initialize a new object `recode_output` to hold the recoded item scores. We then join the `ceiling_reached` column to `input_long`, using `left_join(ceiling_subtests, by = c("ID", "pre"))`. The `by = ` argument ensures that the the markers in the `ceiling_reached` column will be aligned to the correct rows in `input_long`.
 ```{r script, echo = 34:35, eval = FALSE}
 ```
-Recall that in the long-format input object, test items are nested within subtests, which are in turn nested within persons. Because test items exist in successive rows, we need to label the first ("recode onset") and last ("recode offset") rows of the subset of rows to be recoded.
+Recall that in the long-format input object, test items are nested within subtests, which are in turn nested within persons. This structure places test items in successive rows, running down the table, instead of successive columns running across the table. 
 
-To accomplish this, we first regroup the data by `ID`, so that process of labeling rows restarts for each successive person. We call `mutate(case_when())` to create a new column `NA_status`, which holds the `onset_NA` and `offset_NA` labels for each subtest to be recoded.
+Thus, to flag a run of contiguous items that require recoding, we need to identify the subset of contiguous rows that contain those items. We do so by marking the boundary rows in this subset. That is, we mark the first row (the row where recoding begins, or onsets) and the last row (the row where recoding stops, or offsets).
+
+In the code snippet below, we first regroup the data by `ID`, so that the process of marking rows restarts for each successive person. We call `mutate(case_when())` to create a new column `NA_status`, which holds the `onset_NA` and `offset_NA` labels for each subtest to be recoded.
 
 We identify rows to be labeled with logical tests (predicates) that depend on the values of `pre`, `ceiling`, and `ceiling_reached`. For example, `case_when()` codes `"onset_NA"` as the value of  `NA_status`, when the predicate `lag(ceiling) == 1 & pre == lag(pre) & ceiling_reached == 1` returns `TRUE`. In turn, this compound predicate returns `TRUE` if and only if three conditions are met, for any given row:
 
-* The value of `ceiling` in the previous `lag()` row is `1`. In other words, the stop rule for that subtest was satisfied by the streak of responses that ended in the previous row.
+* The value of `ceiling` in the previous `lag()` row is `1`. In other words, the stop rule for that subtest is satisfied by the streak of `0` scores that ends in the previous row.
 * The value of `pre` is identical to its value in the previous row (`lag(pre)`). In other words, the item (row) currently being tested belongs to the same subtest as the item that satisfied the stop rule.
-* The current subtest is one in which the stop rule has been satisfied (`ceiling_reached == 1`). This may seem redundant with the first condition above, but note that the current condition depends on the state of a _subtest_, whereas the first condition depends on the state of a _row_. There is a subtle distinction between these two logical states, and both states must be taken into account to ensure proper labeling of the rows that need to be recoded.
+* The current subtest is one in which the stop rule has been satisfied (`ceiling_reached == 1`). This may seem redundant with the first condition above, but note that the current condition depends on the state of a _subtest_, whereas the first condition depends on the state of a _row_. There is a subtle distinction between these two logical states, and both states must be taken into account to ensure that the correct subset of rows is identified by the procedure.
 
-To recount, this call of `mutate(case_when())` returns a new variable `NA_status`, that holds labels for the boundaries of a run of successive items (rows) that need to be recoded. For the first row of such a run, the label is `onset_NA`, and for the last row of such a run, the label is `offset_NA`.
+To recount, this call of `mutate(case_when())` returns a new variable, `NA_status`, that holds markers for the boundaries of a run of contiguous rows. For the first row of the run, the label is `onset_NA`, and for the last row of the run, the label is `offset_NA`.
 ```{r script, echo = 36:45, eval = FALSE}
 ```
-The example below reveals the structure of the long data object at this stage. The subset of rows to be recoded begins with `onset_NA` and ends with `offset_NA`. Examination of these labeled rows, and their lagging and leading rows, shows how the conditions of the predicates within `mutate(case_when())` are satisfied. 
+The example below reveals the structure of the long data object at this stage. The subset of rows to be recoded begins with `onset_NA` and ends with `offset_NA`. Examination of these boundary rows, and their lagging and leading rows, shows how the conditions of the predicates within `mutate(case_when())` are satisfied. 
 ```
     ID pre   num   value streak_val ceiling ceiling_reached NA_status
  201016 iws   34        0          4       0               1 NA       
@@ -195,11 +197,13 @@ The example below reveals the structure of the long data object at this stage. T
  201016 bln   1         1         NA       0               1 NA       
  201016 bln   2         1         NA       0               1 NA       
 ```
-Note, too, that within the subset of rows delineated by these boundary labels, `value` always equals `NA`. In the next code snippet, we complete the recoding process by changing `value` in these rows from `NA` to `0`.
+Note, too, that within the subset of rows delineated by these boundary labels, `value` always equals `NA`. In the next snippet, we complete the recoding process by changing `value` from `NA` to `0` in these rows.
 
-To execute the recoding, we first regroup the data by `ID` and `pre`, to ensure that subsquent operations are restarted anew _within_ subsets and persons. We then call `mutate()` to apply a function only to the `NA_status` column (isolating it for this purpose with `across()`). We use `fill_run(.)` to fill in rows of `NA_status` with the previous non-NA value (the `.` indicates that the function is to be applied to the column isolated by `across()`). `fill_run()` thus encounters the row labeled `onset_NA` and replaces `NA` with `onset_NA` in subsequent rows until it encounters another non-NA value (`offset_NA`), at which point it stops replacing values.
+To execute the recoding, we first regroup the data by `ID` and `pre`, to ensure that subsequent operations are restarted anew _within_ subsets and persons. We then call `mutate()` to apply a function only to the `NA_status` column (isolating it for this purpose with `across()`). We use `runner::fill_run(.)` to fill in a subset of rows within `NA_status` (the subset of rows _between_ the boundary rows). Currently, all rows in this subset are `NA`.
 
-Now, the coding of `NA_status` in the rows of the previous example looks like this:
+`fill_run(.)` fills these rows with the previous non-`NA` value (the `.` shorthand indicates that the function is to be applied to the column isolated by `across()`, which is `NA_status`). `fill_run()` processes the data object in a row-wise fashion. It proceeds down the rows until it encounters the first non-`NA` row of `NA_status`, which is the row coded `onset_NA`. At this point, `onset_NA` becomes the "fill value" for subsequent rows. `fill_run()` continues on down the `NA_status` column, replacing `NA` with `onset_NA`, until it encounters the next non-`NA` value (`offset_NA`), at which point it stops replacing values.
+
+After this operation is complete, note how the values of `NA_status` have changed from the previous example:
 
  ```
     ID pre   num   value streak_val ceiling ceiling_reached NA_status
@@ -223,11 +227,24 @@ Now, the coding of `NA_status` in the rows of the previous example looks like th
  201016 bln   1         1         NA       0               1 NA       
  201016 bln   2         1         NA       0               1 NA       
 ```
-
-
+A second call of `mutate(case_when())` completes the recoding. Here we initialize a new column `new_val`, which is coded `0` for rows that have the values `onset_NA` or `offset_NA` in the `NA_status` column. This coding instruction is provided by the expression `NA_status %in% c("onset_NA", "offset_NA") ~ 0`, where `%in% c()` resolves to "is one of these values". In the "else" condition of `case_when()` (defined by the expression `TRUE ~ value`), the existing value of the `value` column is carried over into `new_val`.
 ```{r script, echo = 46:50, eval = FALSE}
 ```
+The final output of this process is a recoded data frame with the same column and row structure as the original input. To recover that structure, we use `pivot_wider()` to transform the long data object back into wide format. That transformation returns a data frame with an `ID` column in the left-most position, and item columns proceeding to the right, as in this example:
 
+```
+    ID  iws1  iws2  iws3  iws4  iws5  iws6  iws7  iws8  iws9 iws10 
+201016     1     1     1     1     1     1     1     1     1     1 
+201017     1     1     1     1     1     1     1     1     1     1 
+201019     1     1     1     1     1     0     1     1     0     0 
+201020     1     1     1     1     1     1     1     1     1     1 
+201021     1     1     1     1     1     1     1     1     1     1 
+201022     1     1     1     1     1     1     1     1     1     1 
+```
+
+The `id_cols = ID` argument specifies that the unique values of `ID` in the long object, will each map onto a single row in the wide object, thus matching ID numbers with item scores for the person so identified. The `names_from = c(pre, num)` indicates that the column names in the wide object will be concatenations of unique pairs of values from the `pre` and `num` columns in the long object. These columns will hold the recoded item responses. `values_from = new_val` specifies that the cells of the item columns will be populated from the `new_val` column of the long object. As previously described, this column contains the recoded scores generated by the script up until this point. 
+```{r script, echo = 51:57, eval = FALSE}
+```
 
  
  
