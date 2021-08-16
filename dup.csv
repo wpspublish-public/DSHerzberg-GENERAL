@@ -1,0 +1,3 @@
+CaseId,FirstName,LastName,AdministrationFormId,TestFormId,TestFormSectionId,TestFormSectionQuestionId,Title,label,Location,ResponseItemNo,ResponseLabel,ResponseValue
+312274,Arlene,Borjas,484498,3,993,10488,Communication,Names 20 or more familiar objects.,mfid_3.ssid_1.tqid_461,4,3,3
+312274,Arlene,Borjas,484498,3,993,10488,Communication,Names 20 or more familiar objects.,mfid_3.ssid_1.tqid_461,4,GUESSED,1
