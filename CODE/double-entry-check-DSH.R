@@ -20,6 +20,12 @@ df2 <- tribble(
 df1_lessCols <- df1 %>% 
   select(-aa)
 
+df1_lessRows <- df1 %>% 
+  filter(ID != "D1")
+
+df1_diffNames <- df1 %>% 
+  rename(ee = dd)
+
 # The lastest function for checking double entry (considering all condtions)
 changes_by_col <- function(data1, data2){
   counter_1=c()
@@ -56,12 +62,12 @@ changes_by_col <- function(data1, data2){
     print("The data sets have the same column names.")
   }
   if (nrow(data1)!= nrow(data2)){
-    cat("Data1 has", paste0(nrow(data1)),"obs.",'\n')
-    cat("Data2 has", paste0(nrow(data2)),"obs.",'\n')
-    stop("Warning: The datasets have different number of observations.")
+    cat("Data1 has", paste0(nrow(data1)),"cases.",'\n')
+    cat("Data2 has", paste0(nrow(data2)),"cases.",'\n')
+    stop("Warning: The datasets have different number of cases.")
   }
   else {
-    print("The data sets have the same number of observations.")
+    print("The data sets have the same number of cases.")
   }
   if(is.factor(data1)){
     as.character(data1) != as.character(data2)
@@ -73,3 +79,5 @@ changes_by_col <- function(data1, data2){
 # call the above function
 change1 <- changes_by_col(df1,df2)
 change2 <- changes_by_col(df1_lessCols, df2)
+change3 <- changes_by_col(df1_lessRows, df2)
+change4 <- changes_by_col(df1_d, df2)
