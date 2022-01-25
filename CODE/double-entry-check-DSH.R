@@ -80,4 +80,4 @@ changes_by_col <- function(data1, data2){
 change1 <- changes_by_col(df1,df2)
 change2 <- changes_by_col(df1_lessCols, df2)
 change3 <- changes_by_col(df1_lessRows, df2)
-change4 <- changes_by_col(df1_d, df2)
+change4 <- changes_by_col(df1_diffNames, df2)
