@@ -1,0 +1,73 @@
+---
+title: "No leading eros: Repairing input and advanced sorting functions"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#### Overview
+
+This method addresses the sorting problems that may arise when procesing input files that have poorly named variables. An example of this is procedures that handle grade norms. Often the names assigned to grade levels do not take into account the need sort grade levels correctly during data processing. Because basic sorting functions operate on narrow rules for numerical or alphabetical order, they often sort incorrectly when presented with column names that human intuitively can sort in the correct order.
+
+For example, consider a data set whose sample is stratified by grade level. These grade levels might be labeled: `"K", "1", "2", "3", . . ., "9", 10", "11", "12"`. Basic sorting with `dplyr::arrange()` would yield the following incorrect sort order: `"K", "1", "10", "11", "12", "2", "3", . . ., "9"`. The culprit here is the lack of leading zeros on the input variable labels.
+
+There are two approaches for dealing with this problem. First, we can rename variables upon reading in the input files, adding leading zeros at that stage. Second, we can leave the column names unmodified, and use advanced sorting functions available in the `naturalsort` package.
+
+
+###### RUNNABLE CODE
+```{r lead-zero, eval = TRUE}
+suppressMessages(library(here))
+suppressMessages(library(tidyverse))
+suppressMessages(library(naturalsort))
+
+input_test_names <- c("PV-S", "LW-S", "QRF-S", "WRF-S")
+norm_type <- "grade"
+input_file_path <- "INPUT-FILES/TOD-S/CHILD-GRADE/"
+
+input_files <- map(
+  input_test_names,
+  ~
+  suppressMessages(read_csv(here(str_c(
+  input_file_path, .x, "-", norm_type, ".csv"
+))))
+) %>% 
+  set_names(input_test_names)
+
+new_names_input <- input_files[[1]] %>%
+  names() %>%
+  tibble() %>%
+  mutate(across(.,
+                ~
+                  case_when(
+                    str_detect(., "^(?!(r|K|10|11|12)).*$") ~ str_c("0", .),
+                    TRUE ~ .
+                  ))) %>%
+  pull(.)
+
+```
+
+<br>
+
+###### COMMENTED SNIPPETS
+Load packages for file path specification (`here`), data wrangling (`tidyverse`), and advanced sorting operations (`naturalsort`). Initialize tokens for test names, file paths, and other input parameters. 
+
+
+```{r lead-zero, echo = 1:7, eval = FALSE}
+```
+
+Read input files into a list named `input_files`. To read the files, we use `map()` to call `read_csv()` iteratively over the set of input files. The first argument to `map()` is the vector `input_test_names`, one of the tokens initialized upstream in the script. The second argument to `map()` is the function to be applied to iteratively to the input files, namely `read_csv()`. Within `map()`, the function call is set off with the formula notation `~`.
+
+As `map()` iterates over the `input_test_names` vector, it passes one complete file path at a time to `read_csv()`. These file paths are strings, concatenated from tokens and quoted sub-strings with `str_c()`. `map()` returns a list, `input_files`, holding the input files as four data frames. `set_names()` applies matching test-specific names to the four data frames.
+
+```{r lead-zero, echo = 9:17, eval = FALSE}
+```
+
+Extract and revise problematic variable names. All four data frames in `input_files` share the same variables names, which are the grade levels, specified in a way that creates problems with sorting. To extract the names, we need access only a single data frame, which we do with double-bracket subsetting `input_files[[1]]`. We use `names()` to extract the names into a vector, which we then transform into a single-column data frame with `tibble()`. At this stage, the problematic names are the row values for a generically named `.` variable.
+
+
+
+```{r lead-zero, echo = 18:28, eval = FALSE}
+```
+
