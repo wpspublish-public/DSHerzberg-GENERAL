@@ -1,5 +1,5 @@
 ---
-title: "No leading eros: Repairing input and advanced sorting functions"
+title: "No leading zeros: Repairing input and advanced sorting functions"
 output: html_document
 ---
 
@@ -64,10 +64,44 @@ As `map()` iterates over the `input_test_names` vector, it passes one complete f
 ```{r lead-zero, echo = 9:17, eval = FALSE}
 ```
 
-Extract and revise problematic variable names. All four data frames in `input_files` share the same variables names, which are the grade levels, specified in a way that creates problems with sorting. To extract the names, we need access only a single data frame, which we do with double-bracket subsetting `input_files[[1]]`. We use `names()` to extract the names into a vector, which we then transform into a single-column data frame with `tibble()`. At this stage, the problematic names are the row values for a generically named `.` variable.
+Extract and revise problematic variable names. All four data frames in `input_files` share the same variables names, which are the grade levels, specified in a way that creates problems with sorting. To extract the names, we need access only a single data frame, which we do with double-bracket subsetting `input_files[[1]]`. We use `names()` to extract the names into a vector, which we then transform into a single-column data frame with `tibble()`. At this stage, the problematic names are the row values for a generically named `.` variable. This data structure allows us to use `dplyr` functions to isolate the rows containing problematic names, and re-specify those names with leading zeros.
 
+The key functions we invoke here are `mutate()`, to change values of existing variables, `across()`, to identify a subset of variables whose values are to be modified, and `case_when()` to define logical conditions under which certain values will be modified.
 
+Examining a vector of the problematic names helps to see what needs to be fixed, and how to approach the renaming process:
+
+```
+ [1] "raw"       "K-Fall"    "K-Spring"  "1-Fall"    "1-Spring" 
+ [6] "2-Fall"    "2-Spring"  "3-Fall"    "3-Spring"  "4-Fall"   
+[11] "4-Spring"  "5-Fall"    "5-Spring"  "6-Fall"    "6-Spring" 
+[16] "7-Fall"    "7-Spring"  "8-Fall"    "8-Spring"  "9-Fall"   
+[21] "9-Spring"  "10-Fall"   "10-Spring" "11-Fall"   "11-Spring"
+[26] "12-Fall"   "12-Spring"
+```
+The issue is that the single-digit grade levels (e.g, `"1-Spring"`) lack leading zeros. Because of this, `dplyr::arrange()` will sort the names in the following incorrect sequence: `"1-Spring", "10-Fall", "10-Spring", "11-Fall"` (and so on). To solve this problem, we need to prepend leading zeros, but only to certain values in the above vector of names (i.e., only to the single-digit grade levels).
+
+`case_when()` enables recoding of variables based on logical conditions. In the first argument to `case_when()`, we supply a predicate function to isolate only the names of single-digit grade levels, and then a string function to prepend leading zeros onto those names. In these functions, `.` indicates that we are operating on the variable(s) identified in `across()`.
+
+The expression `str_detect(., "^(?!(r|K|10|11|12)).*$")` is the predicate function that isolates the single-digit grade levels. `str_detect()` searches for a pattern within a string, and returns `TRUE` when there is a match. Here, the first argument is `.`, which points to the column holding the input variable names. The second argument is a regular expression that delineates the pattern to be matched. Starting from the inner-most parenthesis, `r|K|10|11|12` provides the leading characters of the names that _do not_ receive leading zeros. These strings are separated by the vertical pipe `|`, which specifies the logical "or" condition, meaning that the presence of _any one_ of these strings will yield a match.
+
+`^(?!(...))` is wrapped around the inner parenthetical group of characters. `^` anchors the search for a match at the start of each name. `?!` is a "look-around" operator indicating that the expression will match any string where the start is _not_ followed by _any_ of the character sequences contained in `r|K|10|11|12`. Thus, the expression matches the beginnings of the single-digit grade levels, the names that do not begin with any of the sequences in `r|K|10|11|12`.
+
+The regular expression concludes with `.*$` which allows a match with the entire string of each single-digit grade level. `.` matches the presence of at least one additional character (of any type) in the name. `*` indicates a match witn any number of additional characters (including none) past the first character. `$` specifies that the search for a match continues to the end (last character) of the name being examined.
+
+As noted above, the `str_detect()` function identifies those names (the single-digit grade levels) that we need to modify with a leading zero. Within `case_when()`, the recoding functions to applied under various logical conditions are set off by the formula notation `~`. Here, we call `str_c("0", .)` to prepend the zero character to the existing name (denoted by `.`). The second argument to `case_when()`, `TRUE ~ .`, denotes the logical "else" condition, and specifies that any name _not_ captured by the `str_detect()` is to be left unchanged (in other words, it remains simply `.`).
+
+Finally, we call `dplyr::pull()` to extract the modified names out of the data frame columns and into a vector (where they can be reapplied to the input data as needed to insure correct sorting on grade level):
+
+```
+ [1] "raw"       "K-Fall"    "K-Spring"  "01-Fall"   "01-Spring"
+ [6] "02-Fall"   "02-Spring" "03-Fall"   "03-Spring" "04-Fall"  
+[11] "04-Spring" "05-Fall"   "05-Spring" "06-Fall"   "06-Spring"
+[16] "07-Fall"   "07-Spring" "08-Fall"   "08-Spring" "09-Fall"  
+[21] "09-Spring" "10-Fall"   "10-Spring" "11-Fall"   "11-Spring"
+[26] "12-Fall"   "12-Spring"
+```
 
 ```{r lead-zero, echo = 18:28, eval = FALSE}
 ```
 
+Another solution is to leave the problematic input names unmodified, but obtain a correct sort order using advanced sorting functions.
