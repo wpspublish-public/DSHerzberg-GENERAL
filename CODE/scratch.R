@@ -28,3 +28,30 @@ new_names_input <- input_files[[1]] %>%
                     TRUE ~ .
                   ))) %>%
   pull(.)
+
+
+temp2 <- input_files[[1]] %>%
+  names() %>%
+  tibble() %>% 
+  rename(grade_strat = ".") %>% 
+  arrange(grade_strat)
+
+
+
+temp3 <- input_files[[1]] %>%
+  names() %>%
+  tibble() %>% 
+  rename(grade_strat = ".") %>% 
+  arrange(match(temp1, grade_strat))
+
+temp4 <- input_files[[1]] %>%
+  names() %>%
+  tibble() %>% 
+  rename(grade_strat = ".") %>% 
+  arrange(match(order(.$grade_strat, decreasing = FALSE), grade_strat))
+
+temp5 <- input_files[[1]] %>%
+  names() %>%
+  tibble() %>% 
+  rename(grade_strat = ".") %>% 
+  arrange(match(grade_strat, grade_strat))
