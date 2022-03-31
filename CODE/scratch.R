@@ -55,3 +55,29 @@ temp5 <- input_files[[1]] %>%
   tibble() %>% 
   rename(grade_strat = ".") %>% 
   arrange(match(grade_strat, grade_strat))
+
+temp6 <- input_files[[1]] %>%
+  names() %>%
+  tibble() %>% 
+  rename(grade_strat = ".") 
+  
+temp7 <- temp6 %>% 
+  arrange(match(grade_strat, grade_strat))
+
+temp8 <- temp6 %>% 
+  arrange(match(1:27, grade_strat))
+
+
+urlRemote_path  <- "https://raw.github.com/"
+github_path <- "wpspublish-public/DSHerzberg-GENERAL/master/INPUT-FILES/TOD-S/CHILD-GRADE/"
+
+input_files <- map(
+  input_test_names,
+  ~
+    suppressMessages(read_csv(url(str_c(
+      urlRemote_path, github_path, .x, "-", norm_type, ".csv"
+    ))))
+) %>% 
+  set_names(input_test_names)
+
+

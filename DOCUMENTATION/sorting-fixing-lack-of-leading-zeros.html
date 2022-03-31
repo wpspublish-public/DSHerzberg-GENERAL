@@ -169,27 +169,27 @@ pre code {
 </div>
 
 
-<div id="overview" class="section level4">
-<h4>Overview</h4>
 <p>This method addresses the sorting problems that may arise with poorly named variables. An example of this is procedures that handle grade norms. Often the names assigned to grade levels do not take into account the need to sort grade levels in numerical order during data processing. Because basic sorting functions operate on narrow rules for numerical or alphabetical order, they often sort incorrectly when presented with column names where numbers appear without leading zeros.</p>
 <p>For example, consider a data set whose sample is stratified by grade level. These grade levels might be labeled: <code>&quot;1&quot;, &quot;2&quot;, &quot;3&quot;, . . ., &quot;9&quot;, 10&quot;, &quot;11&quot;, &quot;12&quot;</code>. Basic sorting with <code>dplyr::arrange()</code> would yield the following incorrect sort order: <code>&quot;1&quot;, &quot;10&quot;, &quot;11&quot;, &quot;12&quot;, &quot;2&quot;, &quot;3&quot;, . . ., &quot;9&quot;</code>. The culprit here is the lack of leading zeros on the single-digit grade levels.</p>
-<p>There are two approaches for dealing with this problem. First, we can rename variables upon reading in the input files, adding leading zeros at that stage. Second, we can leave the column names unmodified, and use advanced sorting functions available in the <code>naturalsort</code> package.</p>
-<div id="runnable-code" class="section level6">
-<h6>RUNNABLE CODE</h6>
+<p>There are two approaches for dealing with this problem. First, we can rename variables upon reading the input files, adding leading zeros at that stage. Second, we can leave the column names unmodified, and use advanced sorting functions, such as those available in the <code>naturalsort</code> package.</p>
+<p>This documentation also covers how to read a set of test-specific input files into a list, which is a common starting point for many analytic procedures.</p>
+<div id="exectuable-code" class="section level6">
+<h6>EXECTUABLE CODE</h6>
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 suppressMessages(library(naturalsort))
 
 input_test_names &lt;- c(&quot;PV-S&quot;, &quot;LW-S&quot;, &quot;QRF-S&quot;, &quot;WRF-S&quot;)
 norm_type &lt;- &quot;grade&quot;
-input_file_path &lt;- &quot;INPUT-FILES/TOD-S/CHILD-GRADE/&quot;
+urlRemote_path  &lt;- &quot;https://raw.github.com/&quot;
+github_path &lt;- &quot;wpspublish-public/DSHerzberg-GENERAL/master/INPUT-FILES/TOD-S/CHILD-GRADE/&quot;
 
 input_files &lt;- map(
   input_test_names,
   ~
-  suppressMessages(read_csv(here(str_c(
-  input_file_path, .x, &quot;-&quot;, norm_type, &quot;.csv&quot;
-))))
+    suppressMessages(read_csv(url(str_c(
+      urlRemote_path, github_path, .x, &quot;-&quot;, norm_type, &quot;.csv&quot;
+    ))))
 ) %&gt;% 
   set_names(input_test_names)
 
@@ -215,7 +215,13 @@ names_naturalsort &lt;- input_files[[1]] %&gt;%
   names() %&gt;%
   tibble() %&gt;% 
   rename(grade_strat = &quot;.&quot;) %&gt;% 
-  naturalsort(.$grade_strat, decreasing = FALSE)</code></pre>
+  naturalsort(.$grade_strat, decreasing = FALSE)
+
+names_arrange_match &lt;- input_files[[1]] %&gt;%
+  names() %&gt;%
+  tibble() %&gt;% 
+  rename(grade_strat = &quot;.&quot;) %&gt;% 
+  arrange(match(grade_strat, grade_strat))</code></pre>
 <p><br></p>
 </div>
 <div id="commented-snippets" class="section level6">
@@ -227,18 +233,19 @@ suppressMessages(library(naturalsort))
 
 input_test_names &lt;- c(&quot;PV-S&quot;, &quot;LW-S&quot;, &quot;QRF-S&quot;, &quot;WRF-S&quot;)
 norm_type &lt;- &quot;grade&quot;
-input_file_path &lt;- &quot;INPUT-FILES/TOD-S/CHILD-GRADE/&quot;</code></pre>
+urlRemote_path  &lt;- &quot;https://raw.github.com/&quot;
+github_path &lt;- &quot;wpspublish-public/DSHerzberg-GENERAL/master/INPUT-FILES/TOD-S/CHILD-GRADE/&quot;</code></pre>
 <p>Read input files into a list named <code>input_files</code>. To read the files, we use <code>map()</code> to call <code>read_csv()</code> iteratively over a set of input files. The first argument to <code>map()</code> is the vector <code>input_test_names</code>, one of the tokens initialized upstream in the script. The second argument to <code>map()</code> is the function to be applied to iteratively to the input files, namely <code>read_csv()</code>. Within <code>map()</code>, the function call is set off with the formula notation <code>~</code>.</p>
-<p>As <code>map()</code> iterates over the <code>input_test_names</code> vector, it passes one complete file path at a time to <code>read_csv()</code>. These file paths are strings, concatenated from tokens and quoted sub-strings with <code>str_c()</code>. <code>map()</code> returns a list, <code>input_files</code>, holding the input files as four data frames. <code>set_names()</code> applies matching test-specific names to the four data frames.</p>
+<p>As <code>map()</code> iterates over the <code>input_test_names</code> vector, it passes one complete file path at a time to <code>read_csv()</code>. These file paths are strings, concatenated from tokens and quoted sub-strings with <code>str_c()</code>. <code>map()</code> returns a list, <code>input_files</code>, holding the input files as four data frames. <code>set_names()</code> applies matching test-specific names to the four data frames. Also note the use of <code>url()</code> to retrieve files from a remote url.</p>
 <pre class="r"><code>input_files &lt;- map(
   input_test_names,
   ~
-  suppressMessages(read_csv(here(str_c(
-  input_file_path, .x, &quot;-&quot;, norm_type, &quot;.csv&quot;
-))))
+    suppressMessages(read_csv(url(str_c(
+      urlRemote_path, github_path, .x, &quot;-&quot;, norm_type, &quot;.csv&quot;
+    ))))
 ) %&gt;% 
   set_names(input_test_names)</code></pre>
-<p>Extract and revise problematic variable names. All four data frames in <code>input_files</code> share the same variables names, which are the grade levels, specified without leading zeros. To extract the names, we need access only one of these data frames, which we do with double-bracket subsetting <code>input_files[[1]]</code>. We use <code>names()</code> to extract the names into a vector, which we then transform into a single-column data frame with <code>tibble()</code>. At this stage, the problematic names are the row values for a generically named <code>.</code> variable. This data structure allows us to use <code>dplyr</code> functions to isolate the rows containing problematic names, and re-specify those names with leading zeros.</p>
+<p>Extract and revise problematic variable names. All four data frames in <code>input_files</code> share the same variables names, which are the grade levels, specified without leading zeros. To extract the names, we need access only one of these data frames, which we do with double-bracket subsetting <code>input_files[[1]]</code>. We use <code>names()</code> to extract the names into a vector, which we then transform into a single-column data frame with <code>tibble()</code>. At this stage, the problematic names are the row values for a generically named <code>.</code> variable (which we promptly <code>rename()</code> to <code>grade_strat</code>. This data structure allows us to use <code>dplyr</code> functions to isolate the rows containing problematic names, and re-specify those names with leading zeros.</p>
 <p>The key functions we invoke here are <code>mutate()</code>, to change values of existing variables, <code>across()</code>, to identify a subset of variables whose values are to be modified, and <code>case_when()</code> to define logical conditions under which certain values will be modified, and the modifications to apply under those conditions.</p>
 <p>Examining a vector of the problematic names allows us to see what needs to be fixed, and how to approach the renaming process:</p>
 <pre><code> [1] &quot;raw&quot;       &quot;K-Fall&quot;    &quot;K-Spring&quot;  &quot;1-Fall&quot;    &quot;1-Spring&quot; 
@@ -303,14 +310,19 @@ K-Spring
 3-Fall     
 3-Spring   
 4-Fall     </code></pre>
-<p>“Natural sorting” refers to a sorting process in which multi-digit numbers are treated as if they were a single character. In other words, whereas <code>arrange()</code> sees <code>11</code> as a sequence of two characters (two “ones”), <code>naturalsort()</code> sees <code>11</code> as a single number (“eleven”), and thus recognizes that in an ascending sort, <code>11</code> is located after <code>2</code>. With reference to the input names in this demonstration, <code>naturalsort()</code> therefore does not require leading zeros in order to sort the single-digit grade levels in the correct order.</p>
-<p><code>naturalsort()</code> is not a <code>tidyverse</code> function, so it requires the explicit specification of arguments that are not made explicit with <code>arrange()</code>. In particular, we specify the column to be sorted with the first argument <code>.$grade_strat</code>, and the sort order with the second argument <code>decreasing = FALSE</code>.</p>
+<p>“Natural sorting” refers to a sorting process in which multi-digit numbers are treated as if they were a single character. In other words, whereas <code>arrange()</code> sees <code>11</code> as a sequence of two characters (two “ones”), <code>naturalsort()</code> sees <code>11</code> as a single number (“eleven”), and thus recognizes that in an ascending sort, <code>11</code> is located after <code>2</code>. <code>naturalsort()</code> therefore does not require leading zeros in order to sort the single-digit grade levels in the correct order.</p>
+<p><code>naturalsort()</code> is not a <code>tidyverse</code> function, so it requires the explicit specification of certain arguments. In particular, we specify the column to be sorted with the first argument <code>.$grade_strat</code>, and the sort order with the second argument <code>decreasing = FALSE</code>.</p>
 <pre class="r"><code>names_naturalsort &lt;- input_files[[1]] %&gt;%
   names() %&gt;%
   tibble() %&gt;% 
   rename(grade_strat = &quot;.&quot;) %&gt;% 
   naturalsort(.$grade_strat, decreasing = FALSE)</code></pre>
-</div>
+<p>A third option is to pass <code>match(grade_strat, grade_strat)</code> as an argument to <code>arrange()</code>, as in the next snippet. Here, <code>match()</code> returns a vector of index positions of the default ordering of the grade_levels (that is, their left-right sequence as column names in the input files). This default ordering also happens to be the correct sort order of the grade levels. Wrapping the <code>match()</code> call with <code>arrange()</code> forces the latter function to sort <code>grade_strat</code> according to the order represented in the vector of index positions, which is the correct order.</p>
+<pre class="r"><code>names_arrange_match &lt;- input_files[[1]] %&gt;%
+  names() %&gt;%
+  tibble() %&gt;% 
+  rename(grade_strat = &quot;.&quot;) %&gt;% 
+  arrange(match(grade_strat, grade_strat))</code></pre>
 </div>
 
 
