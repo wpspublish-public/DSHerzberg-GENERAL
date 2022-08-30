@@ -3,7 +3,7 @@ suppressMessages(library(tidyverse))
 suppressMessages(library(runner))
 
 urlRemote_path  <- "https://raw.github.com/"
-github_path <- "wpspublish/DSHerzberg-GENERAL/master/INPUT-FILES/"
+github_path <- "wpspublish-public/DSHerzberg-GENERAL/master/INPUT-FILES/"
 fileName_path   <- "recode-above-ceiling-input.csv"
 
 input <- suppressMessages(read_csv(url(
