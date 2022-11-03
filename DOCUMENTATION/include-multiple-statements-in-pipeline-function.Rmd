@@ -1,0 +1,40 @@
+---
+title: <font size="6">Combining Separate Statements with Pipeline in `map()` Call</font>
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+###### EXAMPLE CODE
+```
+norm_model_per_score_chosen_transform <- map(
+  norm_input_per_score,
+  ~ {
+    set.seed(12345)
+    bestNormalize(.x) %>%
+      pluck("chosen_transform") %>% 
+      class() %>% 
+      pluck(1)
+  }
+) %>% 
+  set_names(score_names)
+```
+
+<br>
+
+###### COMMENTS
+In this example, we call `map()` to iterate over `norm_input_per_score`, which is a list holding several numerical vectors. On each iteration of `map()`, `bestNormalize::bestNormalize()` is applied to a vector to obtain a normalization model. `map()` returns a named list (`norm_model_per_score_chosen_transform`) holding the name of the normalization model used to process each vector in `norm_input_per_score`.
+
+Ideally, `bestNormalize()` returns the same normalization model, per vector, each time the `map()` operation is run. Like many modeling functions, `bestNormalize()` incorporates random number generation. To ensure replicable results, we need to lock down the random number generation seed (using `set.seed()`) for each iteration of `map()`.
+
+The challenge comes from the fact that `set.seed()` must be run as a separate statement. It cannot be integrated into the pipeline with the other functions that appear in this example (e.g., `pluck()`, `class()`, etc.).
+
+The solution:
+
+1. Within `map()`, set off the entire anonymous function (the `.fun` argument) with `~` (as is customary);
+2. Include `set.seed()` as its own line in the anonymous function (i.e., do not connect it to the pipeline with the pipe operator `%>%`);
+3. Enclose all separate statements and the pipeline in curly braces `{}`. Note how in the example, the open curly-brace `{` is the first character to appear after `~`.
+
+When the anonymous function is wrapped in curly braces in ths manner, `map()` processes `set.seed()` as a separate statement at the beginning of each iteration. In this way, we can lock the random number seed to a certain value each time the code is run, ensuring that the code always yields an identical normalization model for each vector that it processes.
